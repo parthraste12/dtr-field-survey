@@ -234,13 +234,13 @@ function onLocError(err) {
 
   let msg = '';
   switch (err.code) {
-    case 1: // PERMISSION_DENIED
+    case 1:
       msg = '❌ Location permission denied. Tap the 🔒 icon in your browser address bar → Site settings → set Location to "Allow", then tap the button below.';
       break;
-    case 2: // POSITION_UNAVAILABLE
+    case 2:
       msg = '❌ Cannot get location. Please turn ON your phone\'s GPS/Location service, then tap the button below.';
       break;
-    case 3: // TIMEOUT
+    case 3:
       msg = '⏳ Getting location is taking too long. Please move to an open area and tap the button below.';
       break;
     default:
@@ -248,7 +248,6 @@ function onLocError(err) {
   }
   setLocMsg('err', msg);
 
-  /* Auto-retry every 5 seconds until success */
   if (!autoRetryTimer) {
     autoRetryTimer = setInterval(getLoc, 5000);
   }
@@ -268,35 +267,115 @@ function getLoc() {
 }
 
 retryLocBtn.addEventListener('click', getLoc);
-
-/* Try immediately on load */
 getLoc();
 
-/* Re-check whenever tab becomes visible again (user came back from Settings) */
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !geo) {
     getLoc();
   }
 });
 
-/* Photo preview */
+/* Photo preview + hardened compress + rotate */
 const photoInput = document.getElementById('photo');
 const preview    = document.getElementById('photoPreview');
-photoInput.addEventListener('change', () => {
+let processedPhotoBase64 = null;
+let processedPhotoName   = null;
+
+photoInput.addEventListener('change', async () => {
   const f = photoInput.files[0];
   if (!f) return;
-  const r = new FileReader();
-  r.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
-  r.readAsDataURL(f);
+
+  const msgEl = document.getElementById('submitMsg');
+  msgEl.className = 'msg';
+  msgEl.textContent = '⏳ Processing photo…';
+
+  try {
+    const { dataUrl, base64, filename, sizeKb } = await processImage(f);
+    preview.src = dataUrl;
+    preview.style.display = 'block';
+    processedPhotoBase64 = base64;
+    processedPhotoName   = filename;
+    msgEl.className = 'msg ok';
+    msgEl.textContent = `✅ Photo ready (${sizeKb} KB).`;
+  } catch (err) {
+    processedPhotoBase64 = null;
+    processedPhotoName   = null;
+    msgEl.className = 'msg err';
+    msgEl.textContent = '❌ Photo processing failed: ' + err.message;
+  }
 });
 
-/* Helper: file → base64 (strip data: prefix) */
-function fileToBase64(file){
+async function processImage(file) {
+  const MAX_DIM = 1280;
+  const QUALITY = 0.75;
+
+  const dataUrl = await readAsDataURL(file);
+  const img = await loadImage(dataUrl);
+
+  let { width, height } = img;
+  if (width === 0 || height === 0) {
+    throw new Error('Image has invalid dimensions (0x0)');
+  }
+
+  if (width > MAX_DIM || height > MAX_DIM) {
+    const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+    width  = Math.round(width  * ratio);
+    height = Math.round(height * ratio);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const blob = await new Promise((res, rej) => {
+    canvas.toBlob(b => b ? res(b) : rej(new Error('Canvas toBlob failed')),
+                  'image/jpeg', QUALITY);
+  });
+
+  if (blob.size < 1000) {
+    throw new Error('Processed image too small (' + blob.size + ' bytes) - likely corrupt');
+  }
+  if (blob.size > 3 * 1024 * 1024) {
+    throw new Error('Processed image still too large: ' + Math.round(blob.size/1024) + ' KB');
+  }
+
+  const base64 = await blobToBase64(blob);
+  const dataUrl2 = 'data:image/jpeg;base64,' + base64;
+  const filename = 'photo_' + Date.now() + '.jpg';
+
+  console.log('Photo processed:', width + 'x' + height,
+              Math.round(blob.size/1024) + ' KB',
+              'base64 length:', base64.length);
+
+  return { dataUrl: dataUrl2, base64, filename, sizeKb: Math.round(blob.size/1024) };
+}
+
+function readAsDataURL(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+function loadImage(src) {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload  = () => res(im);
+    im.onerror = rej;
+    im.src = src;
+  });
+}
+function blobToBase64(blob) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload  = () => res(r.result.split(',')[1]);
     r.onerror = rej;
-    r.readAsDataURL(file);
+    r.readAsDataURL(blob);
   });
 }
 
@@ -313,7 +392,10 @@ form.addEventListener('submit', async e => {
     getLoc();
     return;
   }
-  if (!photoInput.files[0]) { alert('Please take a photo.'); return; }
+  if (!photoInput.files[0] || !processedPhotoBase64) {
+    alert('Please take a photo (or wait for it to finish processing).');
+    return;
+  }
   if (!form.checkValidity()) { form.reportValidity(); return; }
 
   submitBtn.disabled = true;
@@ -323,25 +405,20 @@ form.addEventListener('submit', async e => {
     const fd = new FormData(form);
     const payload = Object.fromEntries(fd.entries());
 
-    /* Numeric casts */
     ['DTRRatingKVA','CableSizeSqmm','CableQuantityMeters'].forEach(k => {
       payload[k] = Number(payload[k]);
     });
 
-    /* Location + metadata */
     payload.Latitude  = geo.lat;
     payload.Longitude = geo.lng;
     payload.LocationAccuracyMeters = geo.acc;
     payload.CapturedAtUTC   = new Date().toISOString();
     payload.SubmissionRefId = 'DTR-' + Date.now();
 
-    /* Secret from user input */
     payload.secret = codeInput.value.trim();
     delete payload.AccessCode;
 
-    /* Photo */
-    const file = photoInput.files[0];
-    payload.PhotoBase64   = await fileToBase64(file);
+    payload.PhotoBase64   = processedPhotoBase64;
     payload.PhotoFileName = 'photo_' + payload.SubmissionRefId + '.jpg';
 
     const resp = await fetch(POWER_AUTOMATE_URL, {
@@ -359,11 +436,12 @@ form.addEventListener('submit', async e => {
     msg.className = 'msg ok';
     msg.innerHTML = `✅ Submitted successfully. Reference: <b>${data.refId || payload.SubmissionRefId}</b>`;
     form.reset();
-    /* keep access code prefilled */
     codeInput.value = localStorage.getItem('dtrAccessCode') || '';
     preview.style.display = 'none';
+    processedPhotoBase64 = null;
+    processedPhotoName   = null;
     wrap.classList.add('hidden');
-    getLoc(); // refresh for next entry
+    getLoc();
   } catch (err) {
     msg.className = 'msg err';
     msg.textContent = '❌ Submission failed: ' + err.message;
