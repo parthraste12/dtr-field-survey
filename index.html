@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DTR Field Survey</title>
+<style>
+  :root { --brand:#0b6efd; --err:#c62828; --ok:#2e7d32; }
+  * { box-sizing:border-box; font-family: system-ui, sans-serif; }
+  body { margin:0; background:#f4f6f9; padding:16px; }
+  .card { max-width:720px; margin:auto; background:#fff; border-radius:12px;
+          box-shadow:0 4px 16px rgba(0,0,0,.06); padding:20px; }
+  h1 { font-size:20px; margin:0 0 12px; color:var(--brand); }
+  label { display:block; font-weight:600; margin:12px 0 4px; font-size:14px; }
+  input, select, textarea { width:100%; padding:10px; border:1px solid #ccd;
+          border-radius:8px; font-size:14px; }
+  textarea { resize:vertical; min-height:70px; }
+  .req::after { content:" *"; color:var(--err); }
+  .row { display:flex; gap:10px; }
+  .row > div { flex:1; }
+  .msg { padding:10px; border-radius:8px; margin-top:12px; font-size:14px; }
+  .err { background:#ffebee; color:var(--err); }
+  .ok  { background:#e8f5e9; color:var(--ok); }
+  button { margin-top:18px; width:100%; padding:14px; border:0;
+           background:var(--brand); color:#fff; font-size:16px; border-radius:10px;
+           cursor:pointer; }
+  button:disabled { opacity:.6; cursor:not-allowed; }
+  .hint { font-size:12px; color:#666; margin-top:4px; }
+  #photoPreview { max-width:100%; border-radius:8px; margin-top:8px; display:none; }
+  .hidden { display:none; }
+  .pw-wrap { position:relative; }
+  .pw-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%);
+               background:none; border:0; padding:0; width:auto; margin:0;
+               color:var(--brand); font-size:13px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>DTR Field Survey</h1>
+  <div id="locStatus" class="msg err">📍 Requesting location permission…</div>
+
+  <form id="surveyForm" novalidate>
+
+    <label class="req">Access Code</label>
+    <div class="pw-wrap">
+      <input type="password" name="AccessCode" id="accessCode"
+             maxlength="100" autocomplete="off" required
+             placeholder="Enter the access code provided by admin" />
+      <button type="button" class="pw-toggle" id="pwToggle">Show</button>
+    </div>
+    <div class="hint">Ask your supervisor if you don't have this code.</div>
+
+    <label class="req">Circle</label>
+    <select name="Circle" required></select>
+
+    <label class="req">Division</label>
+    <select name="Division" required></select>
+
+    <label class="req">Sub-Division</label>
+    <select name="SubDivision" required></select>
+
+    <label class="req">Section</label>
+    <input name="Section" maxlength="100" required />
+
+    <label class="req">Name of Substation</label>
+    <input name="SubstationName" maxlength="100" required />
+
+    <label class="req">Substation Code</label>
+    <input name="SubstationCode" maxlength="100" required />
+
+    <div class="row">
+      <div>
+        <label class="req">Feeder Name</label>
+        <input name="FeederName" maxlength="100" required />
+      </div>
+      <div>
+        <label class="req">Feeder Code</label>
+        <input name="FeederCode" maxlength="100" required />
+      </div>
+    </div>
+
+    <label class="req">Is smart meter installed?</label>
+    <select name="IsSmartMeterInstalled" required>
+      <option value="">-- Select --</option><option>Yes</option><option>No</option>
+    </select>
+
+    <label class="req">Meter Serial No. (Smart / Old Meter)</label>
+    <input name="MeterSerialNo" maxlength="100" required />
+
+    <div class="row">
+      <div>
+        <label class="req">DTR Name</label>
+        <input name="DTRName" maxlength="100" required />
+      </div>
+      <div>
+        <label class="req">DTR Code / Structure Code</label>
+        <input name="DTRCode" maxlength="100" required />
+      </div>
+    </div>
+
+    <label class="req">DTR Rating (KVA)</label>
+    <input type="number" name="DTRRatingKVA" min="0" max="10000000" step="1" required />
+
+    <label class="req">Is power cable required?</label>
+    <select name="IsPowerCableRequired" required>
+      <option value="">-- Select --</option><option>Yes</option><option>No</option>
+    </select>
+
+    <label class="req">Size of cable (sqmm)</label>
+    <input type="number" name="CableSizeSqmm" min="0" max="1000000" step="1" required />
+
+    <label class="req">Quantity of Power cable (meters)</label>
+    <input type="number" name="CableQuantityMeters" min="0" max="10000000" step="0.01" required />
+
+    <label class="req">Is meter under communication?</label>
+    <select name="IsMeterUnderCommunication" id="commSel" required>
+      <option value="">-- Select --</option><option>Yes</option><option>No</option>
+    </select>
+
+    <div id="nonCommWrap" class="hidden">
+      <label class="req">Non-Communication reason</label>
+      <textarea name="NonCommunicationReason" maxlength="300"></textarea>
+      <div class="hint">Max 300 characters.</div>
+    </div>
+
+    <label class="req">Type of DTR</label>
+    <select name="TypeOfDTR" required>
+      <option value="">-- Select --</option>
+      <option>AGL</option><option>Dedicated</option><option>Non-AGL</option>
+    </select>
+
+    <label class="req">Name of JE</label>
+    <input name="NameOfJE" maxlength="100" required />
+
+    <label class="req">Image of the Equipment (live photo)</label>
+    <input type="file" id="photo" accept="image/*" capture="environment" required />
+    <img id="photoPreview" alt="Preview" />
+    <div class="hint">Camera will open. Please take a fresh photo of the equipment.</div>
+
+    <div id="submitMsg"></div>
+    <button type="submit" id="submitBtn" disabled>Submit</button>
+  </form>
+</div>
+
+<script>
+/* ============ CONFIG ============ */
+const POWER_AUTOMATE_URL = "https://default04c72f56184846a281678e5d36510c.bc.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a7a0fc1a3bbc435c986f3710aeeb19f3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=CEEx4g8epPzzJ937f5r3e5zoDfJrrMkmCljVtMnALd8";
+/* ================================ */
+
+const CIRCLES = ["ALLURI SITHARAMARAJU","ANAKAPALLI","DR.B.R.AMBEDKAR KONASEEMA","EAST GODAVARI","ELURU","KAKINADA","PARVATHIPURAM MANYAM","SRIKAKULAM","VISAKHAPATNAM","VIZIANAGARAM","WEST GODAVARI"];
+
+const DIVISIONS = ["AMALAPURAM","ANAKAPALLE","BHIMAVARAM","BOBBILI","CHIPURUPALLI","ELURU","JAGGAMPETA","JANGAREDDYGUDEM","KAKINADA","KASIMKOTA","NARSAPURAM","NARSIPATNAM","NIDADAVOLE","PADERU","PALAKONDA","PALASA","PARVATHIPURAM","PEDDAPURAM","RAJAMAHENDRAVARAM RURAL","RAJAMAHENDRAVARAM TOWN","RAMACHANDRAPURAM","RAMPACHODAVARAM","SRIKAKULAM","TADEPALLIGUDEM","TEKKALI","VISAKHAPATNAM ZONE-1","VISAKHAPATNAM ZONE-2","VISAKHAPATNAM ZONE-3","VIZIANAGARAM RURAL","VIZIANAGARAM TOWN"];
+
+const SUBDIVISIONS = ["AGANAMPUDI","AKIVEEDU","AMADALAVALASA","AMALAPURAM","ANAKAPALLE","ANANDAPURAM","ANAPARTHY","ARAKU","ATCHUTHAPURAM","AUTONAGAR","BHEEMILI","BHIMADOLU","BHIMAVARAM","BHOGAPURAM","BOBBILI RURAL","BOBBILI TOWN","CHEBROLU","CHINTALAPUDI","CHINTAPALLI","CHINTOOR","CHIPURUPALLI","CHODAVARAM","DISTRIBUTION VSP","DONDAPARTHY","ELAMANCHILI","ELURU RURAL","ELURU TOWN","GAJAPATHINAGARAM","GAJUWAKA","GOPALAPATNAM","GOPALAPURAM","JAGGAMPETA","JANGAREDDYGUDEM","JEELUGUMILLI","JNPC-PARAWADA","KAKINADA RURAL","KAKINADA TOWN-1","KAKINADA TOWN-2","KAMAVARAPUKOTA","KANCHARAPALEM","KASIMKOTA","KORUKONDA","KOTABOMMALI","KOTHAPETA","KOVVURU","KOYYALAGUDEM","LANKELAPALEM","MADHURAWADA","MALKAPURAM","MANDAPETA","MUMMIDIVARAM","NALLAJERLA","NARASANNAPETA","NARSAPURAM","NARSIPATNAM RURAL","NARSIPATNAM TOWN","NIDADAVOLE","PADERU","PALAKOL RURAL","PALAKOL TOWN","PALAKONDA","PALASA","PARVATHIPURAM","PARVATHIPURAM ITDA","PATHAPATNAM","PAYAKARAO PETA","PEDAVEGI","PENDURTHI","PENUGONDA","PITHAPURAM","PRATHIPADU","RAJAM","RAJAMAHENDRAVARAM RURAL","RAJAMAHENDRAVARAM TOWN-1","RAJAMAHENDRAVARAM TOWN-2","RAMPACHODAVARAM","RAMPACHODAVARAM RURAL","RAZOLE","RCPURAM","S.KOTA","SABBAVARAM","SALURU","SAMALKOTA","SEETHAMMADHARA","SEETHAMPETA","SOMPETA","SRIKAKULAM RURAL","SRIKAKULAM TOWN","TADEPALLIGUDEM","TADEPALLIGUDEM-RURAL","TANUKU","TEKKALI","TUNI","VIZIANAGARAM TOWN-1","VIZIANAGARAM TOWN-2","WADDADI","WALTAIR"];
+
+function fill(sel, arr){
+  sel.innerHTML = '<option value="">-- Select --</option>' +
+    arr.map(v => `<option>${v}</option>`).join('');
+}
+fill(document.querySelector('[name=Circle]'),      CIRCLES);
+fill(document.querySelector('[name=Division]'),    DIVISIONS);
+fill(document.querySelector('[name=SubDivision]'), SUBDIVISIONS);
+
+/* Access-code show/hide + remember on device */
+const codeInput = document.getElementById('accessCode');
+const pwToggle  = document.getElementById('pwToggle');
+pwToggle.addEventListener('click', () => {
+  const isPwd = codeInput.type === 'password';
+  codeInput.type = isPwd ? 'text' : 'password';
+  pwToggle.textContent = isPwd ? 'Hide' : 'Show';
+});
+const savedCode = localStorage.getItem('dtrAccessCode');
+if (savedCode) codeInput.value = savedCode;
+codeInput.addEventListener('change', () => {
+  localStorage.setItem('dtrAccessCode', codeInput.value.trim());
+});
+
+/* Conditional field */
+const commSel = document.getElementById('commSel');
+const wrap    = document.getElementById('nonCommWrap');
+const ncta    = wrap.querySelector('textarea');
+commSel.addEventListener('change', () => {
+  const show = commSel.value === 'No';
+  wrap.classList.toggle('hidden', !show);
+  ncta.required = show;
+  if (!show) ncta.value = '';
+});
+
+/* Geolocation — block submission until acquired */
+let geo = null;
+const locStatus = document.getElementById('locStatus');
+const submitBtn = document.getElementById('submitBtn');
+function getLoc(){
+  if (!navigator.geolocation) {
+    locStatus.textContent = '❌ Geolocation not supported on this device. Cannot submit.';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    p => {
+      geo = {
+        lat: +p.coords.latitude.toFixed(6),
+        lng: +p.coords.longitude.toFixed(6),
+        acc: +p.coords.accuracy.toFixed(2)
+      };
+      locStatus.className = 'msg ok';
+      locStatus.textContent = `📍 Location captured: ${geo.lat}, ${geo.lng} (±${geo.acc} m)`;
+      submitBtn.disabled = false;
+    },
+    err => {
+      locStatus.textContent = '❌ Location permission denied or unavailable. Submission blocked. Please enable location and refresh.';
+      submitBtn.disabled = true;
+    },
+    { enableHighAccuracy:true, timeout:20000, maximumAge:0 }
+  );
+}
+getLoc();
+
+/* Photo preview */
+const photoInput = document.getElementById('photo');
+const preview    = document.getElementById('photoPreview');
+photoInput.addEventListener('change', () => {
+  const f = photoInput.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+  r.readAsDataURL(f);
+});
+
+/* Helper: file → base64 (strip data: prefix) */
+function fileToBase64(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+/* Submit */
+const form = document.getElementById('surveyForm');
+const msg  = document.getElementById('submitMsg');
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  msg.innerHTML = '';
+
+  if (!geo) { alert('Location not captured yet.'); return; }
+  if (!photoInput.files[0]) { alert('Please take a photo.'); return; }
+  if (!form.checkValidity()) { form.reportValidity(); return; }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting…';
+
+  try {
+    const fd = new FormData(form);
+    const payload = Object.fromEntries(fd.entries());
+
+    /* Numeric casts */
+    ['DTRRatingKVA','CableSizeSqmm','CableQuantityMeters'].forEach(k => {
+      payload[k] = Number(payload[k]);
+    });
+
+    /* Location + metadata */
+    payload.Latitude  = geo.lat;
+    payload.Longitude = geo.lng;
+    payload.LocationAccuracyMeters = geo.acc;
+    payload.CapturedAtUTC   = new Date().toISOString();
+    payload.SubmissionRefId = 'DTR-' + Date.now();
+
+    /* Secret from user input */
+    payload.secret = codeInput.value.trim();
+    delete payload.AccessCode;
+
+    /* Photo */
+    const file = photoInput.files[0];
+    payload.PhotoBase64   = await fileToBase64(file);
+    payload.PhotoFileName = 'photo_' + payload.SubmissionRefId + '.jpg';
+
+    const resp = await fetch(POWER_AUTOMATE_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+
+    if (resp.status === 401) {
+      throw new Error('Invalid access code. Please check with your supervisor.');
+    }
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+    const data = await resp.json();
+    msg.className = 'msg ok';
+    msg.innerHTML = `✅ Submitted successfully. Reference: <b>${data.refId || payload.SubmissionRefId}</b>`;
+    form.reset();
+    /* keep access code prefilled */
+    codeInput.value = localStorage.getItem('dtrAccessCode') || '';
+    preview.style.display = 'none';
+    wrap.classList.add('hidden');
+    getLoc(); // refresh for next entry
+  } catch (err) {
+    msg.className = 'msg err';
+    msg.textContent = '❌ Submission failed: ' + err.message;
+  } finally {
+    submitBtn.textContent = 'Submit';
+    submitBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
