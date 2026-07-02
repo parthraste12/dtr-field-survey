@@ -32,12 +32,26 @@
   .pw-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%);
                background:none; border:0; padding:0; width:auto; margin:0;
                color:var(--brand); font-size:13px; cursor:pointer; }
+  .secondary-btn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--brand);
+    background: #fff;
+    color: var(--brand);
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .secondary-btn:hover { background: #f0f7ff; }
 </style>
 </head>
 <body>
 <div class="card">
   <h1>DTR Field Survey</h1>
   <div id="locStatus" class="msg err">📍 Requesting location permission…</div>
+  <button type="button" id="retryLocBtn" class="secondary-btn hidden">🔄 Enable Location & Retry</button>
 
   <form id="surveyForm" novalidate>
 
@@ -144,7 +158,7 @@
 
 <script>
 /* ============ CONFIG ============ */
-const POWER_AUTOMATE_URL = "https://default04c72f56184846a281678e5d36510c.bc.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a7a0fc1a3bbc435c986f3710aeeb19f3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=CEEx4g8epPzzJ937f5r3e5zoDfJrrMkmCljVtMnALd8";
+const POWER_AUTOMATE_URL = "PASTE_YOUR_HTTP_POST_URL_HERE";
 /* ================================ */
 
 const CIRCLES = ["ALLURI SITHARAMARAJU","ANAKAPALLI","DR.B.R.AMBEDKAR KONASEEMA","EAST GODAVARI","ELURU","KAKINADA","PARVATHIPURAM MANYAM","SRIKAKULAM","VISAKHAPATNAM","VIZIANAGARAM","WEST GODAVARI"];
@@ -186,34 +200,84 @@ commSel.addEventListener('change', () => {
   if (!show) ncta.value = '';
 });
 
-/* Geolocation — block submission until acquired */
+/* Geolocation — persistent re-prompting */
 let geo = null;
-const locStatus = document.getElementById('locStatus');
-const submitBtn = document.getElementById('submitBtn');
-function getLoc(){
+let autoRetryTimer = null;
+const locStatus   = document.getElementById('locStatus');
+const submitBtn   = document.getElementById('submitBtn');
+const retryLocBtn = document.getElementById('retryLocBtn');
+
+function setLocMsg(cls, text) {
+  locStatus.className = 'msg ' + cls;
+  locStatus.textContent = text;
+}
+function showRetryBtn(show) {
+  retryLocBtn.classList.toggle('hidden', !show);
+}
+
+function onLocSuccess(p) {
+  geo = {
+    lat: +p.coords.latitude.toFixed(6),
+    lng: +p.coords.longitude.toFixed(6),
+    acc: +p.coords.accuracy.toFixed(2)
+  };
+  setLocMsg('ok', `📍 Location captured: ${geo.lat}, ${geo.lng} (±${geo.acc} m)`);
+  submitBtn.disabled = false;
+  showRetryBtn(false);
+  if (autoRetryTimer) { clearInterval(autoRetryTimer); autoRetryTimer = null; }
+}
+
+function onLocError(err) {
+  geo = null;
+  submitBtn.disabled = true;
+  showRetryBtn(true);
+
+  let msg = '';
+  switch (err.code) {
+    case 1: // PERMISSION_DENIED
+      msg = '❌ Location permission denied. Tap the 🔒 icon in your browser address bar → Site settings → set Location to "Allow", then tap the button below.';
+      break;
+    case 2: // POSITION_UNAVAILABLE
+      msg = '❌ Cannot get location. Please turn ON your phone\'s GPS/Location service, then tap the button below.';
+      break;
+    case 3: // TIMEOUT
+      msg = '⏳ Getting location is taking too long. Please move to an open area and tap the button below.';
+      break;
+    default:
+      msg = '❌ Location error. Please enable GPS and browser permission, then tap the button below.';
+  }
+  setLocMsg('err', msg);
+
+  /* Auto-retry every 5 seconds until success */
+  if (!autoRetryTimer) {
+    autoRetryTimer = setInterval(getLoc, 5000);
+  }
+}
+
+function getLoc() {
   if (!navigator.geolocation) {
-    locStatus.textContent = '❌ Geolocation not supported on this device. Cannot submit.';
+    setLocMsg('err', '❌ Geolocation not supported on this device. Cannot submit.');
     return;
   }
+  if (!geo) setLocMsg('err', '📍 Requesting location…');
   navigator.geolocation.getCurrentPosition(
-    p => {
-      geo = {
-        lat: +p.coords.latitude.toFixed(6),
-        lng: +p.coords.longitude.toFixed(6),
-        acc: +p.coords.accuracy.toFixed(2)
-      };
-      locStatus.className = 'msg ok';
-      locStatus.textContent = `📍 Location captured: ${geo.lat}, ${geo.lng} (±${geo.acc} m)`;
-      submitBtn.disabled = false;
-    },
-    err => {
-      locStatus.textContent = '❌ Location permission denied or unavailable. Submission blocked. Please enable location and refresh.';
-      submitBtn.disabled = true;
-    },
-    { enableHighAccuracy:true, timeout:20000, maximumAge:0 }
+    onLocSuccess,
+    onLocError,
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   );
 }
+
+retryLocBtn.addEventListener('click', getLoc);
+
+/* Try immediately on load */
 getLoc();
+
+/* Re-check whenever tab becomes visible again (user came back from Settings) */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !geo) {
+    getLoc();
+  }
+});
 
 /* Photo preview */
 const photoInput = document.getElementById('photo');
@@ -244,7 +308,11 @@ form.addEventListener('submit', async e => {
   e.preventDefault();
   msg.innerHTML = '';
 
-  if (!geo) { alert('Location not captured yet.'); return; }
+  if (!geo) {
+    alert('Location not captured yet. Please enable GPS/location permission and try again.');
+    getLoc();
+    return;
+  }
   if (!photoInput.files[0]) { alert('Please take a photo.'); return; }
   if (!form.checkValidity()) { form.reportValidity(); return; }
 
