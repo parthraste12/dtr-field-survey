@@ -14,6 +14,7 @@
   label { display:block; font-weight:600; margin:12px 0 4px; font-size:14px; }
   input, select, textarea { width:100%; padding:10px; border:1px solid #ccd;
           border-radius:8px; font-size:14px; }
+  select:disabled { background:#f5f5f5; color:#999; cursor:not-allowed; }
   textarea { resize:vertical; min-height:70px; }
   .req::after { content:" *"; color:var(--err); }
   .row { display:flex; gap:10px; }
@@ -32,55 +33,20 @@
   .pw-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%);
                background:none; border:0; padding:0; width:auto; margin:0;
                color:var(--brand); font-size:13px; cursor:pointer; }
-  .secondary-btn {
-    margin-top: 8px;
-    width: 100%;
-    padding: 12px;
-    border: 2px solid var(--brand);
-    background: #fff;
-    color: var(--brand);
-    font-size: 15px;
-    font-weight: 600;
-    border-radius: 10px;
-    cursor: pointer;
-  }
-  .secondary-btn:hover { background: #f0f7ff; }
-  .success-box {
-    padding: 16px;
-    border-radius: 10px;
-    background: #e8f5e9;
-    border: 2px solid var(--ok);
-    margin-top: 12px;
-    text-align: center;
-  }
-  .success-box .aesl-code {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--brand);
-    letter-spacing: 1px;
-    margin: 8px 0;
-    padding: 8px 16px;
-    background: #fff;
-    border-radius: 8px;
-    display: inline-block;
-    border: 2px dashed var(--brand);
-  }
-  .success-box .ref-id {
-    font-size: 12px;
-    color: #555;
-    margin-top: 8px;
-  }
-  .copy-btn {
-    background: transparent;
-    border: 1px solid var(--brand);
-    color: var(--brand);
-    padding: 4px 10px;
-    font-size: 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin: 6px 0 0 0;
-    width: auto;
-  }
+  .secondary-btn { margin-top:8px; width:100%; padding:12px; border:2px solid var(--brand);
+                   background:#fff; color:var(--brand); font-size:15px; font-weight:600;
+                   border-radius:10px; cursor:pointer; }
+  .secondary-btn:hover { background:#f0f7ff; }
+  .success-box { padding:16px; border-radius:10px; background:#e8f5e9;
+                 border:2px solid var(--ok); margin-top:12px; text-align:center; }
+  .success-box .aesl-code { font-size:22px; font-weight:700; color:var(--brand);
+                            letter-spacing:1px; margin:8px 0; padding:8px 16px;
+                            background:#fff; border-radius:8px; display:inline-block;
+                            border:2px dashed var(--brand); }
+  .success-box .ref-id { font-size:12px; color:#555; margin-top:8px; }
+  .copy-btn { background:transparent; border:1px solid var(--brand); color:var(--brand);
+              padding:4px 10px; font-size:12px; border-radius:6px; cursor:pointer;
+              margin:6px 0 0 0; width:auto; }
 </style>
 </head>
 <body>
@@ -101,13 +67,15 @@
     <div class="hint">Ask your supervisor if you don't have this code.</div>
 
     <label class="req">Circle</label>
-    <select name="Circle" required></select>
+    <select name="Circle" id="selCircle" required></select>
 
     <label class="req">Division</label>
-    <select name="Division" required></select>
+    <select name="Division" id="selDivision" required disabled></select>
+    <div class="hint" id="divHint">Select a Circle first.</div>
 
     <label class="req">Sub-Division</label>
-    <select name="SubDivision" required></select>
+    <select name="SubDivision" id="selSubDivision" required disabled></select>
+    <div class="hint" id="subHint">Select a Division first.</div>
 
     <label class="req">Section</label>
     <input name="Section" maxlength="100" required />
@@ -197,19 +165,112 @@
 const POWER_AUTOMATE_URL = "https://default04c72f56184846a281678e5d36510c.bc.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a7a0fc1a3bbc435c986f3710aeeb19f3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=CEEx4g8epPzzJ937f5r3e5zoDfJrrMkmCljVtMnALd8";
 /* ================================ */
 
-const CIRCLES = ["ALLURI SITHARAMARAJU","ANAKAPALLI","DR.B.R.AMBEDKAR KONASEEMA","EAST GODAVARI","ELURU","KAKINADA","PARVATHIPURAM MANYAM","SRIKAKULAM","VISAKHAPATNAM","VIZIANAGARAM","WEST GODAVARI"];
+/* Cascading hierarchy: Circle -> Division -> [Sub-Divisions] */
+const HIERARCHY = {
+  "ALLURI SITHARAMARAJU": {
+    "PADERU": ["ARAKU","CHINTAPALLI","PADERU"],
+    "RAMPACHODAVARAM": ["CHINTOOR","RAMPACHODAVARAM","RAMPACHODAVARAM RURAL"]
+  },
+  "ANAKAPALLI": {
+    "ANAKAPALLE": ["ANAKAPALLE","ATCHUTHAPURAM","ELAMANCHILI","PAYAKARAO PETA"],
+    "KASIMKOTA": ["AGANAMPUDI","JNPC-PARAWADA","KASIMKOTA","LANKELAPALEM","SABBAVARAM"],
+    "NARSIPATNAM": ["CHODAVARAM","NARSIPATNAM RURAL","NARSIPATNAM TOWN","WADDADI"]
+  },
+  "DR.B.R.AMBEDKAR KONASEEMA": {
+    "AMALAPURAM": ["AMALAPURAM","KOTHAPETA","MUMMIDIVARAM","RAZOLE"],
+    "RAMACHANDRAPURAM": ["MANDAPETA","RCPURAM"]
+  },
+  "EAST GODAVARI": {
+    "NIDADAVOLE": ["GOPALAPURAM","KOVVURU","NALLAJERLA","NIDADAVOLE"],
+    "RAJAMAHENDRAVARAM RURAL": ["ANAPARTHY","KORUKONDA","RAJAMAHENDRAVARAM RURAL"],
+    "RAJAMAHENDRAVARAM TOWN": ["RAJAMAHENDRAVARAM TOWN-1","RAJAMAHENDRAVARAM TOWN-2"]
+  },
+  "ELURU": {
+    "ELURU": ["BHIMADOLU","CHEBROLU","ELURU RURAL","ELURU TOWN","PEDAVEGI"],
+    "JANGAREDDYGUDEM": ["CHINTALAPUDI","JANGAREDDYGUDEM","JEELUGUMILLI","KAMAVARAPUKOTA","KOYYALAGUDEM"]
+  },
+  "KAKINADA": {
+    "JAGGAMPETA": ["JAGGAMPETA","PRATHIPADU","TUNI"],
+    "KAKINADA": ["KAKINADA RURAL","KAKINADA TOWN-1","KAKINADA TOWN-2"],
+    "PEDDAPURAM": ["PITHAPURAM","SAMALKOTA"]
+  },
+  "PARVATHIPURAM MANYAM": {
+    "PALAKONDA": ["PALAKONDA","SEETHAMPETA"],
+    "PARVATHIPURAM": ["PARVATHIPURAM","PARVATHIPURAM ITDA","SALURU"]
+  },
+  "SRIKAKULAM": {
+    "PALASA": ["PALASA","SOMPETA"],
+    "SRIKAKULAM": ["AMADALAVALASA","SRIKAKULAM RURAL","SRIKAKULAM TOWN"],
+    "TEKKALI": ["KOTABOMMALI","NARASANNAPETA","PATHAPATNAM","TEKKALI"]
+  },
+  "VISAKHAPATNAM": {
+    "VISAKHAPATNAM ZONE-1": ["DISTRIBUTION VSP","DONDAPARTHY","SEETHAMMADHARA","WALTAIR"],
+    "VISAKHAPATNAM ZONE-2": ["AUTONAGAR","GAJUWAKA","KANCHARAPALEM","MALKAPURAM"],
+    "VISAKHAPATNAM ZONE-3": ["ANANDAPURAM","BHEEMILI","GOPALAPATNAM","MADHURAWADA","PENDURTHI"]
+  },
+  "VIZIANAGARAM": {
+    "BOBBILI": ["BOBBILI RURAL","BOBBILI TOWN","GAJAPATHINAGARAM"],
+    "CHIPURUPALLI": ["CHIPURUPALLI"],
+    "VIZIANAGARAM RURAL": ["BHOGAPURAM","RAJAM","S.KOTA"],
+    "VIZIANAGARAM TOWN": ["VIZIANAGARAM TOWN-1","VIZIANAGARAM TOWN-2"]
+  },
+  "WEST GODAVARI": {
+    "BHIMAVARAM": ["AKIVEEDU","BHIMAVARAM"],
+    "NARSAPURAM": ["NARSAPURAM","PALAKOL RURAL","PALAKOL TOWN","PENUGONDA"],
+    "TADEPALLIGUDEM": ["TADEPALLIGUDEM","TADEPALLIGUDEM-RURAL","TANUKU"]
+  }
+};
 
-const DIVISIONS = ["AMALAPURAM","ANAKAPALLE","BHIMAVARAM","BOBBILI","CHIPURUPALLI","ELURU","JAGGAMPETA","JANGAREDDYGUDEM","KAKINADA","KASIMKOTA","NARSAPURAM","NARSIPATNAM","NIDADAVOLE","PADERU","PALAKONDA","PALASA","PARVATHIPURAM","PEDDAPURAM","RAJAMAHENDRAVARAM RURAL","RAJAMAHENDRAVARAM TOWN","RAMACHANDRAPURAM","RAMPACHODAVARAM","SRIKAKULAM","TADEPALLIGUDEM","TEKKALI","VISAKHAPATNAM ZONE-1","VISAKHAPATNAM ZONE-2","VISAKHAPATNAM ZONE-3","VIZIANAGARAM RURAL","VIZIANAGARAM TOWN"];
+const selCircle    = document.getElementById('selCircle');
+const selDivision  = document.getElementById('selDivision');
+const selSubDiv    = document.getElementById('selSubDivision');
+const divHint      = document.getElementById('divHint');
+const subHint      = document.getElementById('subHint');
 
-const SUBDIVISIONS = ["AGANAMPUDI","AKIVEEDU","AMADALAVALASA","AMALAPURAM","ANAKAPALLE","ANANDAPURAM","ANAPARTHY","ARAKU","ATCHUTHAPURAM","AUTONAGAR","BHEEMILI","BHIMADOLU","BHIMAVARAM","BHOGAPURAM","BOBBILI RURAL","BOBBILI TOWN","CHEBROLU","CHINTALAPUDI","CHINTAPALLI","CHINTOOR","CHIPURUPALLI","CHODAVARAM","DISTRIBUTION VSP","DONDAPARTHY","ELAMANCHILI","ELURU RURAL","ELURU TOWN","GAJAPATHINAGARAM","GAJUWAKA","GOPALAPATNAM","GOPALAPURAM","JAGGAMPETA","JANGAREDDYGUDEM","JEELUGUMILLI","JNPC-PARAWADA","KAKINADA RURAL","KAKINADA TOWN-1","KAKINADA TOWN-2","KAMAVARAPUKOTA","KANCHARAPALEM","KASIMKOTA","KORUKONDA","KOTABOMMALI","KOTHAPETA","KOVVURU","KOYYALAGUDEM","LANKELAPALEM","MADHURAWADA","MALKAPURAM","MANDAPETA","MUMMIDIVARAM","NALLAJERLA","NARASANNAPETA","NARSAPURAM","NARSIPATNAM RURAL","NARSIPATNAM TOWN","NIDADAVOLE","PADERU","PALAKOL RURAL","PALAKOL TOWN","PALAKONDA","PALASA","PARVATHIPURAM","PARVATHIPURAM ITDA","PATHAPATNAM","PAYAKARAO PETA","PEDAVEGI","PENDURTHI","PENUGONDA","PITHAPURAM","PRATHIPADU","RAJAM","RAJAMAHENDRAVARAM RURAL","RAJAMAHENDRAVARAM TOWN-1","RAJAMAHENDRAVARAM TOWN-2","RAMPACHODAVARAM","RAMPACHODAVARAM RURAL","RAZOLE","RCPURAM","S.KOTA","SABBAVARAM","SALURU","SAMALKOTA","SEETHAMMADHARA","SEETHAMPETA","SOMPETA","SRIKAKULAM RURAL","SRIKAKULAM TOWN","TADEPALLIGUDEM","TADEPALLIGUDEM-RURAL","TANUKU","TEKKALI","TUNI","VIZIANAGARAM TOWN-1","VIZIANAGARAM TOWN-2","WADDADI","WALTAIR"];
-
-function fill(sel, arr){
-  sel.innerHTML = '<option value="">-- Select --</option>' +
-    arr.map(v => `<option>${v}</option>`).join('');
+function fillSelect(sel, items, placeholder) {
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    items.map(v => `<option>${v}</option>`).join('');
 }
-fill(document.querySelector('[name=Circle]'),      CIRCLES);
-fill(document.querySelector('[name=Division]'),    DIVISIONS);
-fill(document.querySelector('[name=SubDivision]'), SUBDIVISIONS);
+
+/* Fill circles */
+fillSelect(selCircle, Object.keys(HIERARCHY).sort(), '-- Select Circle --');
+fillSelect(selDivision, [], '-- Select Division --');
+fillSelect(selSubDiv, [], '-- Select Sub-Division --');
+
+/* When circle changes → filter divisions */
+selCircle.addEventListener('change', () => {
+  const c = selCircle.value;
+  if (c && HIERARCHY[c]) {
+    const divs = Object.keys(HIERARCHY[c]).sort();
+    fillSelect(selDivision, divs, '-- Select Division --');
+    selDivision.disabled = false;
+    divHint.textContent = `${divs.length} division(s) available.`;
+  } else {
+    fillSelect(selDivision, [], '-- Select Division --');
+    selDivision.disabled = true;
+    divHint.textContent = 'Select a Circle first.';
+  }
+  /* reset sub-division */
+  fillSelect(selSubDiv, [], '-- Select Sub-Division --');
+  selSubDiv.disabled = true;
+  subHint.textContent = 'Select a Division first.';
+});
+
+/* When division changes → filter sub-divisions */
+selDivision.addEventListener('change', () => {
+  const c = selCircle.value;
+  const d = selDivision.value;
+  if (c && d && HIERARCHY[c] && HIERARCHY[c][d]) {
+    const subs = HIERARCHY[c][d].slice().sort();
+    fillSelect(selSubDiv, subs, '-- Select Sub-Division --');
+    selSubDiv.disabled = false;
+    subHint.textContent = `${subs.length} sub-division(s) available.`;
+  } else {
+    fillSelect(selSubDiv, [], '-- Select Sub-Division --');
+    selSubDiv.disabled = true;
+    subHint.textContent = 'Select a Division first.';
+  }
+});
 
 /* Access-code show/hide + remember on device */
 const codeInput = document.getElementById('accessCode');
@@ -236,7 +297,7 @@ commSel.addEventListener('change', () => {
   if (!show) ncta.value = '';
 });
 
-/* Geolocation — persistent re-prompting */
+/* Geolocation */
 let geo = null;
 let autoRetryTimer = null;
 const locStatus   = document.getElementById('locStatus');
@@ -250,171 +311,103 @@ function setLocMsg(cls, text) {
 function showRetryBtn(show) {
   retryLocBtn.classList.toggle('hidden', !show);
 }
-
 function onLocSuccess(p) {
-  geo = {
-    lat: +p.coords.latitude.toFixed(6),
-    lng: +p.coords.longitude.toFixed(6),
-    acc: +p.coords.accuracy.toFixed(2)
-  };
+  geo = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6), acc:+p.coords.accuracy.toFixed(2) };
   setLocMsg('ok', `📍 Location captured: ${geo.lat}, ${geo.lng} (±${geo.acc} m)`);
   submitBtn.disabled = false;
   showRetryBtn(false);
   if (autoRetryTimer) { clearInterval(autoRetryTimer); autoRetryTimer = null; }
 }
-
 function onLocError(err) {
   geo = null;
   submitBtn.disabled = true;
   showRetryBtn(true);
-
   let msg = '';
   switch (err.code) {
-    case 1:
-      msg = '❌ Location permission denied. Tap the 🔒 icon in your browser address bar → Site settings → set Location to "Allow", then tap the button below.';
-      break;
-    case 2:
-      msg = '❌ Cannot get location. Please turn ON your phone\'s GPS/Location service, then tap the button below.';
-      break;
-    case 3:
-      msg = '⏳ Getting location is taking too long. Please move to an open area and tap the button below.';
-      break;
-    default:
-      msg = '❌ Location error. Please enable GPS and browser permission, then tap the button below.';
+    case 1: msg = '❌ Location permission denied. Tap the 🔒 icon in your browser address bar → Site settings → set Location to "Allow", then tap the button below.'; break;
+    case 2: msg = '❌ Cannot get location. Please turn ON your phone\'s GPS/Location service, then tap the button below.'; break;
+    case 3: msg = '⏳ Getting location is taking too long. Please move to an open area and tap the button below.'; break;
+    default: msg = '❌ Location error. Please enable GPS and browser permission, then tap the button below.';
   }
   setLocMsg('err', msg);
-
-  if (!autoRetryTimer) {
-    autoRetryTimer = setInterval(getLoc, 5000);
-  }
+  if (!autoRetryTimer) autoRetryTimer = setInterval(getLoc, 5000);
 }
-
 function getLoc() {
-  if (!navigator.geolocation) {
-    setLocMsg('err', '❌ Geolocation not supported on this device. Cannot submit.');
-    return;
-  }
+  if (!navigator.geolocation) { setLocMsg('err', '❌ Geolocation not supported.'); return; }
   if (!geo) setLocMsg('err', '📍 Requesting location…');
-  navigator.geolocation.getCurrentPosition(
-    onLocSuccess,
-    onLocError,
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-  );
+  navigator.geolocation.getCurrentPosition(onLocSuccess, onLocError,
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
 }
-
 retryLocBtn.addEventListener('click', getLoc);
 getLoc();
-
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !geo) {
-    getLoc();
-  }
+  if (document.visibilityState === 'visible' && !geo) getLoc();
 });
 
-/* Photo preview + compress */
+/* Photo processing */
 const photoInput = document.getElementById('photo');
 const preview    = document.getElementById('photoPreview');
 let processedPhotoBase64 = null;
-let processedPhotoName   = null;
 
 photoInput.addEventListener('change', async () => {
   const f = photoInput.files[0];
   if (!f) return;
-
   const msgEl = document.getElementById('submitMsg');
   msgEl.className = 'msg';
   msgEl.textContent = '⏳ Processing photo…';
-
   try {
-    const { dataUrl, base64, filename, sizeKb } = await processImage(f);
+    const { dataUrl, base64, sizeKb } = await processImage(f);
     preview.src = dataUrl;
     preview.style.display = 'block';
     processedPhotoBase64 = base64;
-    processedPhotoName   = filename;
     msgEl.className = 'msg ok';
     msgEl.textContent = `✅ Photo ready (${sizeKb} KB).`;
   } catch (err) {
     processedPhotoBase64 = null;
-    processedPhotoName   = null;
     msgEl.className = 'msg err';
     msgEl.textContent = '❌ Photo processing failed: ' + err.message;
   }
 });
 
 async function processImage(file) {
-  const MAX_DIM = 1280;
-  const QUALITY = 0.75;
-
+  const MAX_DIM = 1280, QUALITY = 0.75;
   const dataUrl = await readAsDataURL(file);
   const img = await loadImage(dataUrl);
-
   let { width, height } = img;
-  if (width === 0 || height === 0) throw new Error('Image has invalid dimensions (0x0)');
-
+  if (width === 0 || height === 0) throw new Error('Invalid dimensions');
   if (width > MAX_DIM || height > MAX_DIM) {
     const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
     width  = Math.round(width  * ratio);
     height = Math.round(height * ratio);
   }
-
   const canvas = document.createElement('canvas');
-  canvas.width  = width;
-  canvas.height = height;
+  canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, 0, 0, width, height);
-
-  const blob = await new Promise((res, rej) => {
-    canvas.toBlob(b => b ? res(b) : rej(new Error('Canvas toBlob failed')),
-                  'image/jpeg', QUALITY);
-  });
-
-  if (blob.size < 1000) throw new Error('Processed image too small - likely corrupt');
-  if (blob.size > 3 * 1024 * 1024) throw new Error('Processed image too large: ' + Math.round(blob.size/1024) + ' KB');
-
+  const blob = await new Promise((res, rej) =>
+    canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/jpeg', QUALITY));
+  if (blob.size < 1000)  throw new Error('Image too small — likely corrupt');
+  if (blob.size > 3*1024*1024) throw new Error('Image too large: ' + Math.round(blob.size/1024) + ' KB');
   const base64 = await blobToBase64(blob);
-  const dataUrl2 = 'data:image/jpeg;base64,' + base64;
-  const filename = 'photo_' + Date.now() + '.jpg';
-
-  return { dataUrl: dataUrl2, base64, filename, sizeKb: Math.round(blob.size/1024) };
+  return { dataUrl: 'data:image/jpeg;base64,' + base64, base64, sizeKb: Math.round(blob.size/1024) };
 }
-
 function readAsDataURL(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload  = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
+  return new Promise((res, rej) => { const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
 }
 function loadImage(src) {
-  return new Promise((res, rej) => {
-    const im = new Image();
-    im.onload  = () => res(im);
-    im.onerror = rej;
-    im.src = src;
-  });
+  return new Promise((res, rej) => { const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; });
 }
 function blobToBase64(blob) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload  = () => res(r.result.split(',')[1]);
-    r.onerror = rej;
-    r.readAsDataURL(blob);
-  });
+  return new Promise((res, rej) => { const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(blob); });
 }
 
-/* Copy AESL code to clipboard */
 function copyAeslCode(code) {
   if (navigator.clipboard) {
     navigator.clipboard.writeText(code).then(() => {
       const btn = document.getElementById('copyAeslBtn');
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = '✅ Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1500);
-      }
+      if (btn) { const orig = btn.textContent; btn.textContent = '✅ Copied!'; setTimeout(()=>{btn.textContent = orig;}, 1500); }
     });
   }
 }
@@ -425,18 +418,10 @@ const msg  = document.getElementById('submitMsg');
 
 form.addEventListener('submit', async e => {
   e.preventDefault();
-  msg.innerHTML = '';
-  msg.className = '';
+  msg.innerHTML = ''; msg.className = '';
 
-  if (!geo) {
-    alert('Location not captured yet. Please enable GPS/location permission and try again.');
-    getLoc();
-    return;
-  }
-  if (!photoInput.files[0] || !processedPhotoBase64) {
-    alert('Please take a photo (or wait for it to finish processing).');
-    return;
-  }
+  if (!geo) { alert('Location not captured yet.'); getLoc(); return; }
+  if (!photoInput.files[0] || !processedPhotoBase64) { alert('Please take a photo.'); return; }
   if (!form.checkValidity()) { form.reportValidity(); return; }
 
   submitBtn.disabled = true;
@@ -446,9 +431,7 @@ form.addEventListener('submit', async e => {
     const fd = new FormData(form);
     const payload = Object.fromEntries(fd.entries());
 
-    ['DTRRatingKVA','CableSizeSqmm','CableQuantityMeters'].forEach(k => {
-      payload[k] = Number(payload[k]);
-    });
+    ['DTRRatingKVA','CableSizeSqmm','CableQuantityMeters'].forEach(k => { payload[k] = Number(payload[k]); });
 
     payload.Latitude  = geo.lat;
     payload.Longitude = geo.lng;
@@ -463,44 +446,43 @@ form.addEventListener('submit', async e => {
     payload.PhotoFileName = 'photo_' + payload.SubmissionRefId + '.jpg';
 
     const resp = await fetch(POWER_AUTOMATE_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload)
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
     });
 
-    if (resp.status === 401) {
-      throw new Error('Invalid access code. Please check with your supervisor.');
-    }
+    if (resp.status === 401) throw new Error('Invalid access code. Please check with your supervisor.');
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
     const data = await resp.json();
     const aeslCode = data.aeslDtCode || 'Pending';
     const refId    = data.refId || payload.SubmissionRefId;
 
-    msg.className = '';
     msg.innerHTML = `
       <div class="success-box">
         <div>✅ <b>Submitted successfully!</b></div>
         <div style="margin-top:8px; font-size:13px; color:#555">Your AESL DT Code:</div>
         <div class="aesl-code">${aeslCode}</div>
         <div>
-          <button type="button" id="copyAeslBtn" class="copy-btn"
-                  onclick="copyAeslCode('${aeslCode}')">📋 Copy Code</button>
+          <button type="button" id="copyAeslBtn" class="copy-btn" onclick="copyAeslCode('${aeslCode}')">📋 Copy Code</button>
         </div>
         <div class="ref-id">Reference: ${refId}</div>
-      </div>
-    `;
+      </div>`;
 
     form.reset();
     codeInput.value = localStorage.getItem('dtrAccessCode') || '';
     preview.style.display = 'none';
     processedPhotoBase64 = null;
-    processedPhotoName   = null;
     wrap.classList.add('hidden');
+    /* Reset cascading dropdowns */
+    fillSelect(selDivision, [], '-- Select Division --');
+    fillSelect(selSubDiv, [], '-- Select Sub-Division --');
+    selDivision.disabled = true;
+    selSubDiv.disabled = true;
+    divHint.textContent = 'Select a Circle first.';
+    subHint.textContent = 'Select a Division first.';
     getLoc();
-
-    /* Scroll to success message */
-    msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    msg.scrollIntoView({ behavior:'smooth', block:'center' });
   } catch (err) {
     msg.className = 'msg err';
     msg.textContent = '❌ Submission failed: ' + err.message;
