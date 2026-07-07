@@ -45,6 +45,42 @@
     cursor: pointer;
   }
   .secondary-btn:hover { background: #f0f7ff; }
+  .success-box {
+    padding: 16px;
+    border-radius: 10px;
+    background: #e8f5e9;
+    border: 2px solid var(--ok);
+    margin-top: 12px;
+    text-align: center;
+  }
+  .success-box .aesl-code {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--brand);
+    letter-spacing: 1px;
+    margin: 8px 0;
+    padding: 8px 16px;
+    background: #fff;
+    border-radius: 8px;
+    display: inline-block;
+    border: 2px dashed var(--brand);
+  }
+  .success-box .ref-id {
+    font-size: 12px;
+    color: #555;
+    margin-top: 8px;
+  }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--brand);
+    color: var(--brand);
+    padding: 4px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin: 6px 0 0 0;
+    width: auto;
+  }
 </style>
 </head>
 <body>
@@ -275,7 +311,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-/* Photo preview + hardened compress + rotate */
+/* Photo preview + compress */
 const photoInput = document.getElementById('photo');
 const preview    = document.getElementById('photoPreview');
 let processedPhotoBase64 = null;
@@ -313,9 +349,7 @@ async function processImage(file) {
   const img = await loadImage(dataUrl);
 
   let { width, height } = img;
-  if (width === 0 || height === 0) {
-    throw new Error('Image has invalid dimensions (0x0)');
-  }
+  if (width === 0 || height === 0) throw new Error('Image has invalid dimensions (0x0)');
 
   if (width > MAX_DIM || height > MAX_DIM) {
     const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
@@ -336,20 +370,12 @@ async function processImage(file) {
                   'image/jpeg', QUALITY);
   });
 
-  if (blob.size < 1000) {
-    throw new Error('Processed image too small (' + blob.size + ' bytes) - likely corrupt');
-  }
-  if (blob.size > 3 * 1024 * 1024) {
-    throw new Error('Processed image still too large: ' + Math.round(blob.size/1024) + ' KB');
-  }
+  if (blob.size < 1000) throw new Error('Processed image too small - likely corrupt');
+  if (blob.size > 3 * 1024 * 1024) throw new Error('Processed image too large: ' + Math.round(blob.size/1024) + ' KB');
 
   const base64 = await blobToBase64(blob);
   const dataUrl2 = 'data:image/jpeg;base64,' + base64;
   const filename = 'photo_' + Date.now() + '.jpg';
-
-  console.log('Photo processed:', width + 'x' + height,
-              Math.round(blob.size/1024) + ' KB',
-              'base64 length:', base64.length);
 
   return { dataUrl: dataUrl2, base64, filename, sizeKb: Math.round(blob.size/1024) };
 }
@@ -379,6 +405,20 @@ function blobToBase64(blob) {
   });
 }
 
+/* Copy AESL code to clipboard */
+function copyAeslCode(code) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(() => {
+      const btn = document.getElementById('copyAeslBtn');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      }
+    });
+  }
+}
+
 /* Submit */
 const form = document.getElementById('surveyForm');
 const msg  = document.getElementById('submitMsg');
@@ -386,6 +426,7 @@ const msg  = document.getElementById('submitMsg');
 form.addEventListener('submit', async e => {
   e.preventDefault();
   msg.innerHTML = '';
+  msg.className = '';
 
   if (!geo) {
     alert('Location not captured yet. Please enable GPS/location permission and try again.');
@@ -413,7 +454,7 @@ form.addEventListener('submit', async e => {
     payload.Longitude = geo.lng;
     payload.LocationAccuracyMeters = geo.acc;
     payload.CapturedAtUTC   = new Date().toISOString();
-    payload.SubmissionRefId = 'DTR-' + Date.now();
+    payload.SubmissionRefId = 'DTR-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 
     payload.secret = codeInput.value.trim();
     delete payload.AccessCode;
@@ -433,8 +474,23 @@ form.addEventListener('submit', async e => {
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
     const data = await resp.json();
-    msg.className = 'msg ok';
-    msg.innerHTML = `✅ Submitted successfully. Reference: <b>${data.refId || payload.SubmissionRefId}</b>`;
+    const aeslCode = data.aeslDtCode || 'Pending';
+    const refId    = data.refId || payload.SubmissionRefId;
+
+    msg.className = '';
+    msg.innerHTML = `
+      <div class="success-box">
+        <div>✅ <b>Submitted successfully!</b></div>
+        <div style="margin-top:8px; font-size:13px; color:#555">Your AESL DT Code:</div>
+        <div class="aesl-code">${aeslCode}</div>
+        <div>
+          <button type="button" id="copyAeslBtn" class="copy-btn"
+                  onclick="copyAeslCode('${aeslCode}')">📋 Copy Code</button>
+        </div>
+        <div class="ref-id">Reference: ${refId}</div>
+      </div>
+    `;
+
     form.reset();
     codeInput.value = localStorage.getItem('dtrAccessCode') || '';
     preview.style.display = 'none';
@@ -442,6 +498,9 @@ form.addEventListener('submit', async e => {
     processedPhotoName   = null;
     wrap.classList.add('hidden');
     getLoc();
+
+    /* Scroll to success message */
+    msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) {
     msg.className = 'msg err';
     msg.textContent = '❌ Submission failed: ' + err.message;
