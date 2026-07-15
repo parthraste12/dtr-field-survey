@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>DTR Field Survey</title>
 <style>
-  :root { --brand:#0b6efd; --err:#c62828; --ok:#2e7d32; }
+  :root { --brand:#0b6efd; --err:#c62828; --ok:#2e7d32; --auto:#e3f2fd; }
   * { box-sizing:border-box; font-family: system-ui, sans-serif; }
   body { margin:0; background:#f4f6f9; padding:16px; }
   .card { max-width:720px; margin:auto; background:#fff; border-radius:12px;
@@ -14,7 +14,9 @@
   label { display:block; font-weight:600; margin:12px 0 4px; font-size:14px; }
   input, select, textarea { width:100%; padding:10px; border:1px solid #ccd;
           border-radius:8px; font-size:14px; }
-  select:disabled { background:#f5f5f5; color:#999; cursor:not-allowed; }
+  select:disabled { background:#f5f5f5; color:#999; }
+  input.autofilled, select.autofilled { background:var(--auto); border-color:var(--brand); }
+  input:read-only { background:#f5f5f5; }
   textarea { resize:vertical; min-height:70px; }
   .req::after { content:" *"; color:var(--err); }
   .row { display:flex; gap:10px; }
@@ -22,6 +24,7 @@
   .msg { padding:10px; border-radius:8px; margin-top:12px; font-size:14px; }
   .err { background:#ffebee; color:var(--err); }
   .ok  { background:#e8f5e9; color:var(--ok); }
+  .info { background:#e3f2fd; color:var(--brand); }
   button { margin-top:18px; width:100%; padding:14px; border:0;
            background:var(--brand); color:#fff; font-size:16px; border-radius:10px;
            cursor:pointer; }
@@ -36,17 +39,26 @@
   .secondary-btn { margin-top:8px; width:100%; padding:12px; border:2px solid var(--brand);
                    background:#fff; color:var(--brand); font-size:15px; font-weight:600;
                    border-radius:10px; cursor:pointer; }
-  .secondary-btn:hover { background:#f0f7ff; }
+  .check-btn { margin-top:8px; padding:10px 16px; background:var(--brand); color:#fff;
+               border:0; border-radius:8px; font-size:14px; font-weight:600;
+               cursor:pointer; width:auto; }
+  .check-btn:disabled { opacity:.6; cursor:not-allowed; }
+  .reset-btn { margin-top:8px; padding:8px 12px; background:#fff; color:var(--err);
+               border:1px solid var(--err); border-radius:8px; font-size:13px;
+               cursor:pointer; width:auto; margin-left:8px; }
   .success-box { padding:16px; border-radius:10px; background:#e8f5e9;
                  border:2px solid var(--ok); margin-top:12px; text-align:center; }
-  .success-box .aesl-code { font-size:22px; font-weight:700; color:var(--brand);
+  .success-box .aesl-code { font-size:20px; font-weight:700; color:var(--brand);
                             letter-spacing:1px; margin:8px 0; padding:8px 16px;
                             background:#fff; border-radius:8px; display:inline-block;
-                            border:2px dashed var(--brand); }
-  .success-box .ref-id { font-size:12px; color:#555; margin-top:8px; }
+                            border:2px dashed var(--brand); word-break:break-all; }
   .copy-btn { background:transparent; border:1px solid var(--brand); color:var(--brand);
               padding:4px 10px; font-size:12px; border-radius:6px; cursor:pointer;
               margin:6px 0 0 0; width:auto; }
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid #ccc;
+             border-top-color:var(--brand); border-radius:50%;
+             animation:spin 1s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -80,22 +92,23 @@
     <label class="req">Section</label>
     <input name="Section" maxlength="100" required />
 
-    <label class="req">Name of Substation</label>
-    <input name="SubstationName" maxlength="100" required />
+    <label class="req">Feeder Code</label>
+    <input name="FeederCode" id="feederCode" maxlength="100" required
+           autocomplete="off" placeholder="Enter feeder code" />
+    <div>
+      <button type="button" id="checkFeederBtn" class="check-btn">🔍 Check Feeder</button>
+      <button type="button" id="resetFeederBtn" class="reset-btn hidden">↻ Change Feeder</button>
+    </div>
+    <div class="hint" id="feederStatus">Click "Check Feeder" after entering the code.</div>
+
+    <label class="req">Feeder Name</label>
+    <input name="FeederName" id="feederName" maxlength="200" required />
 
     <label class="req">Substation Code</label>
-    <input name="SubstationCode" maxlength="100" required />
+    <input name="SubstationCode" id="substationCode" maxlength="100" required />
 
-    <div class="row">
-      <div>
-        <label class="req">Feeder Name</label>
-        <input name="FeederName" maxlength="100" required />
-      </div>
-      <div>
-        <label class="req">Feeder Code</label>
-        <input name="FeederCode" maxlength="100" required />
-      </div>
-    </div>
+    <label class="req">Name of Substation</label>
+    <input name="SubstationName" id="substationName" maxlength="200" required />
 
     <label class="req">Is smart meter installed?</label>
     <select name="IsSmartMeterInstalled" required>
@@ -105,19 +118,17 @@
     <label class="req">Meter Serial No. (Smart / Old Meter)</label>
     <input name="MeterSerialNo" maxlength="100" required />
 
-    <div class="row">
-      <div>
-        <label class="req">DTR Name</label>
-        <input name="DTRName" maxlength="100" required />
-      </div>
-      <div>
-        <label class="req">DTR Code / Structure Code</label>
-        <input name="DTRCode" maxlength="100" required />
-      </div>
-    </div>
+    <label class="req">DT Code</label>
+    <select id="dtrSelect" class="hidden"></select>
+    <input name="DTRCode" id="dtrCode" maxlength="100" required
+           autocomplete="off" placeholder="Enter DT Code" />
+    <div class="hint" id="dtrHint">Check Feeder first, or enter DT Code manually.</div>
+
+    <label class="req">DTR Name</label>
+    <input name="DTRName" id="dtrName" maxlength="200" required />
 
     <label class="req">DTR Rating (KVA)</label>
-    <input type="number" name="DTRRatingKVA" min="0" max="10000000" step="1" required />
+    <input type="number" name="DTRRatingKVA" id="dtrKva" min="0" max="10000000" step="1" required />
 
     <label class="req">Is power cable required?</label>
     <select name="IsPowerCableRequired" required>
@@ -162,63 +173,23 @@
 
 <script>
 /* ============ CONFIG ============ */
-const POWER_AUTOMATE_URL = "https://default04c72f56184846a281678e5d36510c.bc.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a7a0fc1a3bbc435c986f3710aeeb19f3/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=CEEx4g8epPzzJ937f5r3e5zoDfJrrMkmCljVtMnALd8";
+const POWER_AUTOMATE_URL = "PASTE_SUBMIT_FLOW_URL_HERE";
+const DTR_LOOKUP_URL     = "PASTE_DTR_LOOKUP_FLOW_URL_HERE";
 /* ================================ */
 
-/* Cascading hierarchy: Circle -> Division -> [Sub-Divisions] */
+/* ---------- Cascading hierarchy ---------- */
 const HIERARCHY = {
-  "ALLURI SITHARAMARAJU": {
-    "PADERU": ["ARAKU","CHINTAPALLI","PADERU"],
-    "RAMPACHODAVARAM": ["CHINTOOR","RAMPACHODAVARAM","RAMPACHODAVARAM RURAL"]
-  },
-  "ANAKAPALLI": {
-    "ANAKAPALLE": ["ANAKAPALLE","ATCHUTHAPURAM","ELAMANCHILI","PAYAKARAO PETA"],
-    "KASIMKOTA": ["AGANAMPUDI","JNPC-PARAWADA","KASIMKOTA","LANKELAPALEM","SABBAVARAM"],
-    "NARSIPATNAM": ["CHODAVARAM","NARSIPATNAM RURAL","NARSIPATNAM TOWN","WADDADI"]
-  },
-  "DR.B.R.AMBEDKAR KONASEEMA": {
-    "AMALAPURAM": ["AMALAPURAM","KOTHAPETA","MUMMIDIVARAM","RAZOLE"],
-    "RAMACHANDRAPURAM": ["MANDAPETA","RCPURAM"]
-  },
-  "EAST GODAVARI": {
-    "NIDADAVOLE": ["GOPALAPURAM","KOVVURU","NALLAJERLA","NIDADAVOLE"],
-    "RAJAMAHENDRAVARAM RURAL": ["ANAPARTHY","KORUKONDA","RAJAMAHENDRAVARAM RURAL"],
-    "RAJAMAHENDRAVARAM TOWN": ["RAJAMAHENDRAVARAM TOWN-1","RAJAMAHENDRAVARAM TOWN-2"]
-  },
-  "ELURU": {
-    "ELURU": ["BHIMADOLU","CHEBROLU","ELURU RURAL","ELURU TOWN","PEDAVEGI"],
-    "JANGAREDDYGUDEM": ["CHINTALAPUDI","JANGAREDDYGUDEM","JEELUGUMILLI","KAMAVARAPUKOTA","KOYYALAGUDEM"]
-  },
-  "KAKINADA": {
-    "JAGGAMPETA": ["JAGGAMPETA","PRATHIPADU","TUNI"],
-    "KAKINADA": ["KAKINADA RURAL","KAKINADA TOWN-1","KAKINADA TOWN-2"],
-    "PEDDAPURAM": ["PITHAPURAM","SAMALKOTA"]
-  },
-  "PARVATHIPURAM MANYAM": {
-    "PALAKONDA": ["PALAKONDA","SEETHAMPETA"],
-    "PARVATHIPURAM": ["PARVATHIPURAM","PARVATHIPURAM ITDA","SALURU"]
-  },
-  "SRIKAKULAM": {
-    "PALASA": ["PALASA","SOMPETA"],
-    "SRIKAKULAM": ["AMADALAVALASA","SRIKAKULAM RURAL","SRIKAKULAM TOWN"],
-    "TEKKALI": ["KOTABOMMALI","NARASANNAPETA","PATHAPATNAM","TEKKALI"]
-  },
-  "VISAKHAPATNAM": {
-    "VISAKHAPATNAM ZONE-1": ["DISTRIBUTION VSP","DONDAPARTHY","SEETHAMMADHARA","WALTAIR"],
-    "VISAKHAPATNAM ZONE-2": ["AUTONAGAR","GAJUWAKA","KANCHARAPALEM","MALKAPURAM"],
-    "VISAKHAPATNAM ZONE-3": ["ANANDAPURAM","BHEEMILI","GOPALAPATNAM","MADHURAWADA","PENDURTHI"]
-  },
-  "VIZIANAGARAM": {
-    "BOBBILI": ["BOBBILI RURAL","BOBBILI TOWN","GAJAPATHINAGARAM"],
-    "CHIPURUPALLI": ["CHIPURUPALLI"],
-    "VIZIANAGARAM RURAL": ["BHOGAPURAM","RAJAM","S.KOTA"],
-    "VIZIANAGARAM TOWN": ["VIZIANAGARAM TOWN-1","VIZIANAGARAM TOWN-2"]
-  },
-  "WEST GODAVARI": {
-    "BHIMAVARAM": ["AKIVEEDU","BHIMAVARAM"],
-    "NARSAPURAM": ["NARSAPURAM","PALAKOL RURAL","PALAKOL TOWN","PENUGONDA"],
-    "TADEPALLIGUDEM": ["TADEPALLIGUDEM","TADEPALLIGUDEM-RURAL","TANUKU"]
-  }
+  "ALLURI SITHARAMARAJU": {"PADERU":["ARAKU","CHINTAPALLI","PADERU"],"RAMPACHODAVARAM":["CHINTOOR","RAMPACHODAVARAM","RAMPACHODAVARAM RURAL"]},
+  "ANAKAPALLI": {"ANAKAPALLE":["ANAKAPALLE","ATCHUTHAPURAM","ELAMANCHILI","PAYAKARAO PETA"],"KASIMKOTA":["AGANAMPUDI","JNPC-PARAWADA","KASIMKOTA","LANKELAPALEM","SABBAVARAM"],"NARSIPATNAM":["CHODAVARAM","NARSIPATNAM RURAL","NARSIPATNAM TOWN","WADDADI"]},
+  "DR.B.R.AMBEDKAR KONASEEMA": {"AMALAPURAM":["AMALAPURAM","KOTHAPETA","MUMMIDIVARAM","RAZOLE"],"RAMACHANDRAPURAM":["MANDAPETA","RCPURAM"]},
+  "EAST GODAVARI": {"NIDADAVOLE":["GOPALAPURAM","KOVVURU","NALLAJERLA","NIDADAVOLE"],"RAJAMAHENDRAVARAM RURAL":["ANAPARTHY","KORUKONDA","RAJAMAHENDRAVARAM RURAL"],"RAJAMAHENDRAVARAM TOWN":["RAJAMAHENDRAVARAM TOWN-1","RAJAMAHENDRAVARAM TOWN-2"]},
+  "ELURU": {"ELURU":["BHIMADOLU","CHEBROLU","ELURU RURAL","ELURU TOWN","PEDAVEGI"],"JANGAREDDYGUDEM":["CHINTALAPUDI","JANGAREDDYGUDEM","JEELUGUMILLI","KAMAVARAPUKOTA","KOYYALAGUDEM"]},
+  "KAKINADA": {"JAGGAMPETA":["JAGGAMPETA","PRATHIPADU","TUNI"],"KAKINADA":["KAKINADA RURAL","KAKINADA TOWN-1","KAKINADA TOWN-2"],"PEDDAPURAM":["PITHAPURAM","SAMALKOTA"]},
+  "PARVATHIPURAM MANYAM": {"PALAKONDA":["PALAKONDA","SEETHAMPETA"],"PARVATHIPURAM":["PARVATHIPURAM","PARVATHIPURAM ITDA","SALURU"]},
+  "SRIKAKULAM": {"PALASA":["PALASA","SOMPETA"],"SRIKAKULAM":["AMADALAVALASA","SRIKAKULAM RURAL","SRIKAKULAM TOWN"],"TEKKALI":["KOTABOMMALI","NARASANNAPETA","PATHAPATNAM","TEKKALI"]},
+  "VISAKHAPATNAM": {"VISAKHAPATNAM ZONE-1":["DISTRIBUTION VSP","DONDAPARTHY","SEETHAMMADHARA","WALTAIR"],"VISAKHAPATNAM ZONE-2":["AUTONAGAR","GAJUWAKA","KANCHARAPALEM","MALKAPURAM"],"VISAKHAPATNAM ZONE-3":["ANANDAPURAM","BHEEMILI","GOPALAPATNAM","MADHURAWADA","PENDURTHI"]},
+  "VIZIANAGARAM": {"BOBBILI":["BOBBILI RURAL","BOBBILI TOWN","GAJAPATHINAGARAM"],"CHIPURUPALLI":["CHIPURUPALLI"],"VIZIANAGARAM RURAL":["BHOGAPURAM","RAJAM","S.KOTA"],"VIZIANAGARAM TOWN":["VIZIANAGARAM TOWN-1","VIZIANAGARAM TOWN-2"]},
+  "WEST GODAVARI": {"BHIMAVARAM":["AKIVEEDU","BHIMAVARAM"],"NARSAPURAM":["NARSAPURAM","PALAKOL RURAL","PALAKOL TOWN","PENUGONDA"],"TADEPALLIGUDEM":["TADEPALLIGUDEM","TADEPALLIGUDEM-RURAL","TANUKU"]}
 };
 
 const selCircle    = document.getElementById('selCircle');
@@ -227,17 +198,13 @@ const selSubDiv    = document.getElementById('selSubDivision');
 const divHint      = document.getElementById('divHint');
 const subHint      = document.getElementById('subHint');
 
-function fillSelect(sel, items, placeholder) {
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    items.map(v => `<option>${v}</option>`).join('');
+function fillSelect(sel, items, ph) {
+  sel.innerHTML = `<option value="">${ph}</option>` + items.map(v=>`<option>${v}</option>`).join('');
 }
-
-/* Fill circles */
 fillSelect(selCircle, Object.keys(HIERARCHY).sort(), '-- Select Circle --');
 fillSelect(selDivision, [], '-- Select Division --');
 fillSelect(selSubDiv, [], '-- Select Sub-Division --');
 
-/* When circle changes → filter divisions */
 selCircle.addEventListener('change', () => {
   const c = selCircle.value;
   if (c && HIERARCHY[c]) {
@@ -250,16 +217,12 @@ selCircle.addEventListener('change', () => {
     selDivision.disabled = true;
     divHint.textContent = 'Select a Circle first.';
   }
-  /* reset sub-division */
   fillSelect(selSubDiv, [], '-- Select Sub-Division --');
   selSubDiv.disabled = true;
   subHint.textContent = 'Select a Division first.';
 });
-
-/* When division changes → filter sub-divisions */
 selDivision.addEventListener('change', () => {
-  const c = selCircle.value;
-  const d = selDivision.value;
+  const c = selCircle.value, d = selDivision.value;
   if (c && d && HIERARCHY[c] && HIERARCHY[c][d]) {
     const subs = HIERARCHY[c][d].slice().sort();
     fillSelect(selSubDiv, subs, '-- Select Sub-Division --');
@@ -272,21 +235,19 @@ selDivision.addEventListener('change', () => {
   }
 });
 
-/* Access-code show/hide + remember on device */
+/* ---------- Access code ---------- */
 const codeInput = document.getElementById('accessCode');
 const pwToggle  = document.getElementById('pwToggle');
 pwToggle.addEventListener('click', () => {
-  const isPwd = codeInput.type === 'password';
-  codeInput.type = isPwd ? 'text' : 'password';
-  pwToggle.textContent = isPwd ? 'Hide' : 'Show';
+  const p = codeInput.type === 'password';
+  codeInput.type = p ? 'text' : 'password';
+  pwToggle.textContent = p ? 'Hide' : 'Show';
 });
 const savedCode = localStorage.getItem('dtrAccessCode');
 if (savedCode) codeInput.value = savedCode;
-codeInput.addEventListener('change', () => {
-  localStorage.setItem('dtrAccessCode', codeInput.value.trim());
-});
+codeInput.addEventListener('change', () => localStorage.setItem('dtrAccessCode', codeInput.value.trim()));
 
-/* Conditional field */
+/* ---------- Conditional non-comm ---------- */
 const commSel = document.getElementById('commSel');
 const wrap    = document.getElementById('nonCommWrap');
 const ncta    = wrap.querySelector('textarea');
@@ -297,68 +258,254 @@ commSel.addEventListener('change', () => {
   if (!show) ncta.value = '';
 });
 
-/* Geolocation */
-let geo = null;
-let autoRetryTimer = null;
-const locStatus   = document.getElementById('locStatus');
-const submitBtn   = document.getElementById('submitBtn');
-const retryLocBtn = document.getElementById('retryLocBtn');
+/* ============ FEEDER CHECK ============ */
+const feederCodeInp    = document.getElementById('feederCode');
+const feederNameInp    = document.getElementById('feederName');
+const substationCodeInp= document.getElementById('substationCode');
+const substationNameInp= document.getElementById('substationName');
+const dtrSelect        = document.getElementById('dtrSelect');
+const dtrCodeInp       = document.getElementById('dtrCode');
+const dtrNameInp       = document.getElementById('dtrName');
+const dtrKvaInp        = document.getElementById('dtrKva');
+const dtrHint          = document.getElementById('dtrHint');
+const feederStatus     = document.getElementById('feederStatus');
+const checkFeederBtn   = document.getElementById('checkFeederBtn');
+const resetFeederBtn   = document.getElementById('resetFeederBtn');
 
-function setLocMsg(cls, text) {
-  locStatus.className = 'msg ' + cls;
-  locStatus.textContent = text;
+let feederChecked = false;
+let feederFound   = false;
+let currentDtrList = [];
+let dataEntryMode = 'Manual';
+
+function setStatus(cls, html) {
+  feederStatus.className = 'msg ' + cls;
+  feederStatus.innerHTML = html;
 }
-function showRetryBtn(show) {
-  retryLocBtn.classList.toggle('hidden', !show);
+function setField(input, value, autofilled) {
+  input.value = value;
+  if (autofilled) { input.classList.add('autofilled'); input.readOnly = true; }
+  else            { input.classList.remove('autofilled'); input.readOnly = false; }
 }
+
+function lockDependentFields() {
+  [feederNameInp, substationCodeInp, substationNameInp, dtrCodeInp, dtrNameInp, dtrKvaInp].forEach(i => {
+    i.value = ''; i.readOnly = true; i.classList.remove('autofilled');
+  });
+  dtrSelect.classList.add('hidden');
+  dtrSelect.required = false;
+  dtrCodeInp.required = true;
+  dtrHint.textContent = 'Click "Check Feeder" first.';
+}
+lockDependentFields();
+
+checkFeederBtn.addEventListener('click', async () => {
+  const code = feederCodeInp.value.trim();
+  if (!code) {
+    setStatus('err', '❌ Please enter a Feeder Code first.');
+    feederCodeInp.focus();
+    return;
+  }
+  checkFeederBtn.disabled = true;
+  setStatus('info', '<span class="spinner"></span> Checking feeder in master data…');
+
+  try {
+    const resp = await fetch(DTR_LOOKUP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feederCode: code })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+
+    if (data.found) {
+      feederFound = true;
+      feederChecked = true;
+      dataEntryMode = 'Auto';
+
+      setField(feederNameInp,    data.feeder.fn, true);
+      setField(substationCodeInp,data.feeder.sc, true);
+      setField(substationNameInp,data.feeder.sn, true);
+
+      feederCodeInp.readOnly = true;
+      feederCodeInp.classList.add('autofilled');
+      checkFeederBtn.classList.add('hidden');
+      resetFeederBtn.classList.remove('hidden');
+
+      currentDtrList = Array.isArray(data.dtrs) ? data.dtrs : [];
+      if (currentDtrList.length > 0) {
+        populateDtrDropdown(currentDtrList);
+        setStatus('ok', `✅ Feeder found! Substation and Feeder Name auto-filled. ${currentDtrList.length} DTR(s) available.`);
+      } else {
+        switchToManualDtr();
+        setStatus('ok', `✅ Feeder found, but no DTRs mapped. Please enter DT details manually.`);
+      }
+    } else {
+      feederFound = false;
+      feederChecked = false;
+      dataEntryMode = 'Manual';
+      setStatus('err',
+        `❌ Feeder Code "<b>${code}</b>" not found. Please re-enter a correct Feeder Code, or if this is a new feeder, click <b>"Enter Manually"</b> below.`);
+      setTimeout(() => {
+        if (!document.getElementById('manualBtn')) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.id = 'manualBtn';
+          btn.className = 'check-btn';
+          btn.style.marginTop = '8px';
+          btn.textContent = '✏️ Enter All Details Manually';
+          btn.onclick = enableFullManualMode;
+          feederStatus.appendChild(document.createElement('br'));
+          feederStatus.appendChild(btn);
+        }
+      }, 100);
+      feederCodeInp.select();
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus('err', '⚠️ Lookup failed: ' + err.message + '. You can also click "Enter Manually" below.');
+    setTimeout(() => {
+      if (!document.getElementById('manualBtn')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'manualBtn';
+        btn.className = 'check-btn';
+        btn.style.marginTop = '8px';
+        btn.textContent = '✏️ Enter All Details Manually';
+        btn.onclick = enableFullManualMode;
+        feederStatus.appendChild(document.createElement('br'));
+        feederStatus.appendChild(btn);
+      }
+    }, 100);
+  } finally {
+    checkFeederBtn.disabled = false;
+  }
+});
+
+function enableFullManualMode() {
+  feederChecked = true;
+  feederFound = false;
+  dataEntryMode = 'Manual';
+
+  [feederNameInp, substationCodeInp, substationNameInp].forEach(i => {
+    i.readOnly = false; i.classList.remove('autofilled');
+  });
+  feederCodeInp.readOnly = true;
+  feederCodeInp.classList.add('autofilled');
+  checkFeederBtn.classList.add('hidden');
+  resetFeederBtn.classList.remove('hidden');
+  switchToManualDtr();
+  setStatus('info', '✏️ Manual entry mode — please fill Feeder Name, Substation Code/Name, and DT details.');
+}
+
+resetFeederBtn.addEventListener('click', () => {
+  feederChecked = false;
+  feederFound = false;
+  dataEntryMode = 'Manual';
+  feederCodeInp.readOnly = false;
+  feederCodeInp.classList.remove('autofilled');
+  feederCodeInp.value = '';
+  feederCodeInp.focus();
+  checkFeederBtn.classList.remove('hidden');
+  resetFeederBtn.classList.add('hidden');
+  lockDependentFields();
+  setStatus('hint', 'Click "Check Feeder" after entering the code.');
+  feederStatus.className = 'hint';
+});
+
+function populateDtrDropdown(dtrs) {
+  dtrSelect.innerHTML =
+    '<option value="">-- Select DT Code --</option>' +
+    dtrs.map((d, i) => `<option value="${i}">${d.c} — ${d.n}</option>`).join('') +
+    '<option value="__manual__">✏️ Enter DT Code Manually</option>';
+  dtrSelect.classList.remove('hidden');
+  dtrSelect.required = true;
+  dtrCodeInp.classList.add('hidden');
+  dtrCodeInp.required = false;
+  dtrCodeInp.value = '';
+  [dtrNameInp, dtrKvaInp].forEach(i => {
+    i.value = ''; i.readOnly = true; i.classList.add('autofilled');
+  });
+  dtrHint.textContent = `${dtrs.length} DTR(s) available. Select one or choose Manual.`;
+}
+function switchToManualDtr() {
+  dtrSelect.classList.add('hidden');
+  dtrSelect.required = false;
+  dtrCodeInp.classList.remove('hidden');
+  dtrCodeInp.required = true;
+  [dtrCodeInp, dtrNameInp, dtrKvaInp].forEach(i => {
+    i.readOnly = false; i.classList.remove('autofilled'); i.value = '';
+  });
+  dtrHint.textContent = 'Manual DT entry: fill DT Code, Name, and KVA.';
+}
+
+dtrSelect.addEventListener('change', () => {
+  const v = dtrSelect.value;
+  if (v === '__manual__') {
+    dataEntryMode = 'Manual';
+    dtrSelect.classList.add('hidden');
+    dtrSelect.required = false;
+    dtrCodeInp.classList.remove('hidden');
+    dtrCodeInp.required = true;
+    [dtrCodeInp, dtrNameInp, dtrKvaInp].forEach(i => {
+      i.readOnly = false; i.classList.remove('autofilled'); i.value = '';
+    });
+    dtrHint.textContent = '✏️ Manual DT entry.';
+  } else if (v !== '') {
+    const d = currentDtrList[Number(v)];
+    if (d) {
+      dtrCodeInp.value = d.c;
+      setField(dtrNameInp, d.n, true);
+      setField(dtrKvaInp,  d.k, true);
+      dtrHint.textContent = `✅ DT selected: ${d.c}`;
+    }
+  }
+});
+
+/* ---------- Geolocation ---------- */
+let geo = null, autoRetryTimer = null;
+const locStatus = document.getElementById('locStatus');
+const submitBtn = document.getElementById('submitBtn');
+const retryLocBtn = document.getElementById('retryLocBtn');
+function setLocMsg(cls, t) { locStatus.className = 'msg ' + cls; locStatus.textContent = t; }
+function showRetryBtn(s) { retryLocBtn.classList.toggle('hidden', !s); }
 function onLocSuccess(p) {
   geo = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6), acc:+p.coords.accuracy.toFixed(2) };
   setLocMsg('ok', `📍 Location captured: ${geo.lat}, ${geo.lng} (±${geo.acc} m)`);
-  submitBtn.disabled = false;
-  showRetryBtn(false);
+  submitBtn.disabled = false; showRetryBtn(false);
   if (autoRetryTimer) { clearInterval(autoRetryTimer); autoRetryTimer = null; }
 }
 function onLocError(err) {
-  geo = null;
-  submitBtn.disabled = true;
-  showRetryBtn(true);
-  let msg = '';
-  switch (err.code) {
-    case 1: msg = '❌ Location permission denied. Tap the 🔒 icon in your browser address bar → Site settings → set Location to "Allow", then tap the button below.'; break;
-    case 2: msg = '❌ Cannot get location. Please turn ON your phone\'s GPS/Location service, then tap the button below.'; break;
-    case 3: msg = '⏳ Getting location is taking too long. Please move to an open area and tap the button below.'; break;
-    default: msg = '❌ Location error. Please enable GPS and browser permission, then tap the button below.';
+  geo = null; submitBtn.disabled = true; showRetryBtn(true);
+  let m=''; switch(err.code){
+    case 1: m='❌ Location permission denied. Tap 🔒 in address bar → Site settings → Location: Allow, then tap the button below.'; break;
+    case 2: m='❌ Cannot get location. Turn ON phone GPS, then tap the button below.'; break;
+    case 3: m='⏳ Timeout. Move to open area and tap the button.'; break;
+    default: m='❌ Location error.';
   }
-  setLocMsg('err', msg);
+  setLocMsg('err', m);
   if (!autoRetryTimer) autoRetryTimer = setInterval(getLoc, 5000);
 }
-function getLoc() {
-  if (!navigator.geolocation) { setLocMsg('err', '❌ Geolocation not supported.'); return; }
-  if (!geo) setLocMsg('err', '📍 Requesting location…');
+function getLoc(){
+  if(!navigator.geolocation){ setLocMsg('err','❌ Geolocation not supported.'); return; }
+  if(!geo) setLocMsg('err','📍 Requesting location…');
   navigator.geolocation.getCurrentPosition(onLocSuccess, onLocError,
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
 }
 retryLocBtn.addEventListener('click', getLoc);
 getLoc();
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !geo) getLoc();
-});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState==='visible' && !geo) getLoc(); });
 
-/* Photo processing */
+/* ---------- Photo ---------- */
 const photoInput = document.getElementById('photo');
 const preview    = document.getElementById('photoPreview');
 let processedPhotoBase64 = null;
-
 photoInput.addEventListener('change', async () => {
-  const f = photoInput.files[0];
-  if (!f) return;
+  const f = photoInput.files[0]; if (!f) return;
   const msgEl = document.getElementById('submitMsg');
-  msgEl.className = 'msg';
-  msgEl.textContent = '⏳ Processing photo…';
+  msgEl.className = 'msg'; msgEl.textContent = '⏳ Processing photo…';
   try {
     const { dataUrl, base64, sizeKb } = await processImage(f);
-    preview.src = dataUrl;
-    preview.style.display = 'block';
+    preview.src = dataUrl; preview.style.display = 'block';
     processedPhotoBase64 = base64;
     msgEl.className = 'msg ok';
     msgEl.textContent = `✅ Photo ready (${sizeKb} KB).`;
@@ -368,51 +515,39 @@ photoInput.addEventListener('change', async () => {
     msgEl.textContent = '❌ Photo processing failed: ' + err.message;
   }
 });
-
 async function processImage(file) {
-  const MAX_DIM = 1280, QUALITY = 0.75;
-  const dataUrl = await readAsDataURL(file);
-  const img = await loadImage(dataUrl);
+  const MAX=1280, Q=0.75;
+  const d = await readAsDataURL(file); const img = await loadImage(d);
   let { width, height } = img;
-  if (width === 0 || height === 0) throw new Error('Invalid dimensions');
-  if (width > MAX_DIM || height > MAX_DIM) {
-    const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
-    width  = Math.round(width  * ratio);
-    height = Math.round(height * ratio);
+  if (!width || !height) throw new Error('Invalid dimensions');
+  if (width > MAX || height > MAX) {
+    const r = Math.min(MAX/width, MAX/height);
+    width = Math.round(width*r); height = Math.round(height*r);
   }
-  const canvas = document.createElement('canvas');
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
+  const cv = document.createElement('canvas');
+  cv.width = width; cv.height = height;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,width,height);
   ctx.drawImage(img, 0, 0, width, height);
   const blob = await new Promise((res, rej) =>
-    canvas.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/jpeg', QUALITY));
-  if (blob.size < 1000)  throw new Error('Image too small — likely corrupt');
-  if (blob.size > 3*1024*1024) throw new Error('Image too large: ' + Math.round(blob.size/1024) + ' KB');
-  const base64 = await blobToBase64(blob);
-  return { dataUrl: 'data:image/jpeg;base64,' + base64, base64, sizeKb: Math.round(blob.size/1024) };
+    cv.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/jpeg', Q));
+  if (blob.size < 1000) throw new Error('Too small');
+  if (blob.size > 3145728) throw new Error('Too large: '+Math.round(blob.size/1024)+' KB');
+  const b64 = await blobToBase64(blob);
+  return { dataUrl:'data:image/jpeg;base64,'+b64, base64:b64, sizeKb:Math.round(blob.size/1024) };
 }
-function readAsDataURL(file) {
-  return new Promise((res, rej) => { const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
-}
-function loadImage(src) {
-  return new Promise((res, rej) => { const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; });
-}
-function blobToBase64(blob) {
-  return new Promise((res, rej) => { const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(blob); });
+function readAsDataURL(f){return new Promise((r,e)=>{const x=new FileReader();x.onload=()=>r(x.result);x.onerror=e;x.readAsDataURL(f);});}
+function loadImage(s){return new Promise((r,e)=>{const i=new Image();i.onload=()=>r(i);i.onerror=e;i.src=s;});}
+function blobToBase64(b){return new Promise((r,e)=>{const x=new FileReader();x.onload=()=>r(x.result.split(',')[1]);x.onerror=e;x.readAsDataURL(b);});}
+
+function copyAeslCode(c){
+  if(navigator.clipboard) navigator.clipboard.writeText(c).then(()=>{
+    const b=document.getElementById('copyAeslBtn');
+    if(b){const o=b.textContent;b.textContent='✅ Copied!';setTimeout(()=>b.textContent=o,1500);}
+  });
 }
 
-function copyAeslCode(code) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(code).then(() => {
-      const btn = document.getElementById('copyAeslBtn');
-      if (btn) { const orig = btn.textContent; btn.textContent = '✅ Copied!'; setTimeout(()=>{btn.textContent = orig;}, 1500); }
-    });
-  }
-}
-
-/* Submit */
+/* ---------- Submit ---------- */
 const form = document.getElementById('surveyForm');
 const msg  = document.getElementById('submitMsg');
 
@@ -420,53 +555,57 @@ form.addEventListener('submit', async e => {
   e.preventDefault();
   msg.innerHTML = ''; msg.className = '';
 
+  if (!feederChecked) {
+    setStatus('err', '⚠️ Please click "Check Feeder" to verify the feeder code before submitting.');
+    feederStatus.scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
   if (!geo) { alert('Location not captured yet.'); getLoc(); return; }
   if (!photoInput.files[0] || !processedPhotoBase64) { alert('Please take a photo.'); return; }
+
+  if (!dtrCodeInp.value && dtrSelect.value && dtrSelect.value !== '__manual__') {
+    const d = currentDtrList[Number(dtrSelect.value)];
+    if (d) dtrCodeInp.value = d.c;
+  }
+
   if (!form.checkValidity()) { form.reportValidity(); return; }
 
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Submitting…';
+  submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
 
   try {
     const fd = new FormData(form);
     const payload = Object.fromEntries(fd.entries());
-
     ['DTRRatingKVA','CableSizeSqmm','CableQuantityMeters'].forEach(k => { payload[k] = Number(payload[k]); });
 
     payload.Latitude  = geo.lat;
     payload.Longitude = geo.lng;
     payload.LocationAccuracyMeters = geo.acc;
     payload.CapturedAtUTC   = new Date().toISOString();
-    payload.SubmissionRefId = 'DTR-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-
-    payload.secret = codeInput.value.trim();
+    payload.SubmissionRefId = 'DTR-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+    payload.secret          = codeInput.value.trim();
     delete payload.AccessCode;
-
+    payload.DTRCode       = dtrCodeInp.value.trim();
+    payload.DataEntryMode = dataEntryMode;
     payload.PhotoBase64   = processedPhotoBase64;
     payload.PhotoFileName = 'photo_' + payload.SubmissionRefId + '.jpg';
 
     const resp = await fetch(POWER_AUTOMATE_URL, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
+      method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify(payload)
     });
-
-    if (resp.status === 401) throw new Error('Invalid access code. Please check with your supervisor.');
+    if (resp.status === 401) throw new Error('Invalid access code.');
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
     const data = await resp.json();
-    const aeslCode = data.aeslDtCode || 'Pending';
-    const refId    = data.refId || payload.SubmissionRefId;
-
+    const code = data.aeslDtCode || 'Pending';
+    const ref  = data.refId || payload.SubmissionRefId;
     msg.innerHTML = `
       <div class="success-box">
         <div>✅ <b>Submitted successfully!</b></div>
-        <div style="margin-top:8px; font-size:13px; color:#555">Your AESL DT Code:</div>
-        <div class="aesl-code">${aeslCode}</div>
-        <div>
-          <button type="button" id="copyAeslBtn" class="copy-btn" onclick="copyAeslCode('${aeslCode}')">📋 Copy Code</button>
-        </div>
-        <div class="ref-id">Reference: ${refId}</div>
+        <div style="margin-top:8px;font-size:13px;color:#555">Your AESL DT Code:</div>
+        <div class="aesl-code">${code}</div>
+        <div><button type="button" id="copyAeslBtn" class="copy-btn" onclick="copyAeslCode('${code}')">📋 Copy Code</button></div>
+        <div style="font-size:12px;color:#555;margin-top:8px">Reference: ${ref} · Mode: <b>${dataEntryMode}</b></div>
       </div>`;
 
     form.reset();
@@ -474,15 +613,21 @@ form.addEventListener('submit', async e => {
     preview.style.display = 'none';
     processedPhotoBase64 = null;
     wrap.classList.add('hidden');
-    /* Reset cascading dropdowns */
     fillSelect(selDivision, [], '-- Select Division --');
     fillSelect(selSubDiv, [], '-- Select Sub-Division --');
-    selDivision.disabled = true;
-    selSubDiv.disabled = true;
+    selDivision.disabled = true; selSubDiv.disabled = true;
     divHint.textContent = 'Select a Circle first.';
     subHint.textContent = 'Select a Division first.';
+    feederChecked = false; feederFound = false; dataEntryMode = 'Manual';
+    feederCodeInp.readOnly = false;
+    feederCodeInp.classList.remove('autofilled');
+    checkFeederBtn.classList.remove('hidden');
+    resetFeederBtn.classList.add('hidden');
+    lockDependentFields();
+    feederStatus.className = 'hint';
+    feederStatus.textContent = 'Click "Check Feeder" after entering the code.';
     getLoc();
-    msg.scrollIntoView({ behavior:'smooth', block:'center' });
+    msg.scrollIntoView({behavior:'smooth', block:'center'});
   } catch (err) {
     msg.className = 'msg err';
     msg.textContent = '❌ Submission failed: ' + err.message;
@@ -494,3 +639,4 @@ form.addEventListener('submit', async e => {
 </script>
 </body>
 </html>
+`
