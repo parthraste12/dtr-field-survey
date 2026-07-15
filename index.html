@@ -14,9 +14,9 @@
   label { display:block; font-weight:600; margin:12px 0 4px; font-size:14px; }
   input, select, textarea { width:100%; padding:10px; border:1px solid #ccd;
           border-radius:8px; font-size:14px; }
-  select:disabled { background:#f5f5f5; color:#999; }
+  select:disabled { background:#eef4ff; color:#333; font-weight:600; cursor:not-allowed; opacity:1; }
   input.autofilled, select.autofilled { background:var(--auto); border-color:var(--brand); }
-  input:read-only { background:#f5f5f5; }
+  input:read-only, input[readonly] { background:#f5f5f5; }
   textarea { resize:vertical; min-height:70px; }
   .req::after { content:" *"; color:var(--err); }
   .row { display:flex; gap:10px; }
@@ -30,7 +30,7 @@
            cursor:pointer; }
   button:disabled { opacity:.6; cursor:not-allowed; }
   .hint { font-size:12px; color:#666; margin-top:4px; }
-  #photoPreview { max-width:100%; border-radius:8px; margin-top:8px; display:none; }
+  .photo-preview { max-width:100%; border-radius:8px; margin-top:8px; display:none; }
   .hidden { display:none; }
   .pw-wrap { position:relative; }
   .pw-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%);
@@ -59,6 +59,8 @@
              border-top-color:var(--brand); border-radius:50%;
              animation:spin 1s linear infinite; vertical-align:middle; margin-right:6px; }
   @keyframes spin { to { transform:rotate(360deg); } }
+  .photo-block { border:1px dashed #ccd; border-radius:8px; padding:12px; margin-top:6px; }
+  .photo-block-title { font-weight:600; color:var(--brand); margin-bottom:6px; font-size:14px; }
 </style>
 </head>
 <body>
@@ -77,6 +79,12 @@
       <button type="button" class="pw-toggle" id="pwToggle">Show</button>
     </div>
     <div class="hint">Ask your supervisor if you don't have this code.</div>
+
+    <label class="req">Project</label>
+    <select name="Project" id="project" required disabled>
+      <option value="APEPDCL" selected>APEPDCL</option>
+    </select>
+    <div class="hint">Project is fixed as APEPDCL.</div>
 
     <label class="req">Circle</label>
     <select name="Circle" id="selCircle" required></select>
@@ -130,16 +138,20 @@
     <label class="req">DTR Rating (KVA)</label>
     <input type="number" name="DTRRatingKVA" id="dtrKva" min="0" max="10000000" step="1" required />
 
-    <label class="req">Is power cable required?</label>
-    <select name="IsPowerCableRequired" required>
+    <label class="req">Is DTR Rating Changed?</label>
+    <select name="IsDTRRatingChanged" id="isRatingChanged" required>
       <option value="">-- Select --</option><option>Yes</option><option>No</option>
     </select>
 
-    <label class="req">Size of cable (sqmm)</label>
-    <input type="number" name="CableSizeSqmm" min="0" max="1000000" step="1" required />
+    <div id="newRatingWrap" class="hidden">
+      <label class="req">New DTR Rating (KVA)</label>
+      <input type="number" name="NewDTRRatingKVA" id="newDtrKva"
+             min="0" max="10000000" step="1" />
+      <div class="hint">Enter the actual current rating of the DTR.</div>
+    </div>
 
-    <label class="req">Quantity of Power cable (meters)</label>
-    <input type="number" name="CableQuantityMeters" min="0" max="10000000" step="0.01" required />
+    <label class="req">Enter New Seal Number</label>
+    <input name="NewSealNumber" id="newSealNumber" maxlength="100" required />
 
     <label class="req">Is meter under communication?</label>
     <select name="IsMeterUnderCommunication" id="commSel" required>
@@ -161,10 +173,23 @@
     <label class="req">Name of JE</label>
     <input name="NameOfJE" maxlength="100" required />
 
-    <label class="req">Image of the Equipment (live photo)</label>
-    <input type="file" id="photo" accept="image/*" capture="environment" required />
-    <img id="photoPreview" alt="Preview" />
-    <div class="hint">Camera will open. Please take a fresh photo of the equipment.</div>
+    <!-- Photo 1: MSN Focused Meter -->
+    <div class="photo-block">
+      <div class="photo-block-title">📷 Photo 1 — MSN Focused Meter Photo <span style="color:var(--err)">*</span></div>
+      <input type="file" id="photoMSN" accept="image/*" capture="environment" required />
+      <img id="photoMSNPreview" class="photo-preview" alt="MSN Preview" />
+      <div class="hint">Take a clear close-up photo of the Meter Serial Number (MSN).</div>
+      <div id="photoMSNStatus" class="hint"></div>
+    </div>
+
+    <!-- Photo 2: DTR Full Structure -->
+    <div class="photo-block">
+      <div class="photo-block-title">📷 Photo 2 — DTR Full Structure View <span style="color:var(--err)">*</span></div>
+      <input type="file" id="photoDTR" accept="image/*" capture="environment" required />
+      <img id="photoDTRPreview" class="photo-preview" alt="DTR Preview" />
+      <div class="hint">Take a full-frame photo showing the entire DTR structure.</div>
+      <div id="photoDTRStatus" class="hint"></div>
+    </div>
 
     <div id="submitMsg"></div>
     <button type="submit" id="submitBtn" disabled>Submit</button>
@@ -256,6 +281,17 @@ commSel.addEventListener('change', () => {
   wrap.classList.toggle('hidden', !show);
   ncta.required = show;
   if (!show) ncta.value = '';
+});
+
+/* ---------- Is DTR Rating Changed: show/hide new rating input ---------- */
+const isRatingChanged = document.getElementById('isRatingChanged');
+const newRatingWrap   = document.getElementById('newRatingWrap');
+const newDtrKvaInp    = document.getElementById('newDtrKva');
+isRatingChanged.addEventListener('change', () => {
+  const yes = isRatingChanged.value === 'Yes';
+  newRatingWrap.classList.toggle('hidden', !yes);
+  newDtrKvaInp.required = yes;
+  if (!yes) newDtrKvaInp.value = '';
 });
 
 /* ============ FEEDER CHECK ============ */
@@ -385,7 +421,6 @@ function enableFullManualMode() {
   feederChecked = true;
   feederFound = false;
   dataEntryMode = 'Manual';
-
   [feederNameInp, substationCodeInp, substationNameInp].forEach(i => {
     i.readOnly = false; i.classList.remove('autofilled');
   });
@@ -495,26 +530,7 @@ retryLocBtn.addEventListener('click', getLoc);
 getLoc();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState==='visible' && !geo) getLoc(); });
 
-/* ---------- Photo ---------- */
-const photoInput = document.getElementById('photo');
-const preview    = document.getElementById('photoPreview');
-let processedPhotoBase64 = null;
-photoInput.addEventListener('change', async () => {
-  const f = photoInput.files[0]; if (!f) return;
-  const msgEl = document.getElementById('submitMsg');
-  msgEl.className = 'msg'; msgEl.textContent = '⏳ Processing photo…';
-  try {
-    const { dataUrl, base64, sizeKb } = await processImage(f);
-    preview.src = dataUrl; preview.style.display = 'block';
-    processedPhotoBase64 = base64;
-    msgEl.className = 'msg ok';
-    msgEl.textContent = `✅ Photo ready (${sizeKb} KB).`;
-  } catch (err) {
-    processedPhotoBase64 = null;
-    msgEl.className = 'msg err';
-    msgEl.textContent = '❌ Photo processing failed: ' + err.message;
-  }
-});
+/* ---------- Photo processing (shared) ---------- */
 async function processImage(file) {
   const MAX=1280, Q=0.75;
   const d = await readAsDataURL(file); const img = await loadImage(d);
@@ -540,6 +556,52 @@ function readAsDataURL(f){return new Promise((r,e)=>{const x=new FileReader();x.
 function loadImage(s){return new Promise((r,e)=>{const i=new Image();i.onload=()=>r(i);i.onerror=e;i.src=s;});}
 function blobToBase64(b){return new Promise((r,e)=>{const x=new FileReader();x.onload=()=>r(x.result.split(',')[1]);x.onerror=e;x.readAsDataURL(b);});}
 
+/* ---------- Photo 1: MSN ---------- */
+const photoMSNInput   = document.getElementById('photoMSN');
+const photoMSNPreview = document.getElementById('photoMSNPreview');
+const photoMSNStatus  = document.getElementById('photoMSNStatus');
+let processedMSNBase64 = null;
+
+photoMSNInput.addEventListener('change', async () => {
+  const f = photoMSNInput.files[0]; if (!f) return;
+  photoMSNStatus.textContent = '⏳ Processing MSN photo…';
+  photoMSNStatus.style.color = '#666';
+  try {
+    const { dataUrl, base64, sizeKb } = await processImage(f);
+    photoMSNPreview.src = dataUrl; photoMSNPreview.style.display = 'block';
+    processedMSNBase64 = base64;
+    photoMSNStatus.textContent = `✅ MSN photo ready (${sizeKb} KB).`;
+    photoMSNStatus.style.color = 'var(--ok)';
+  } catch (err) {
+    processedMSNBase64 = null;
+    photoMSNStatus.textContent = '❌ MSN photo failed: ' + err.message;
+    photoMSNStatus.style.color = 'var(--err)';
+  }
+});
+
+/* ---------- Photo 2: DTR Structure ---------- */
+const photoDTRInput   = document.getElementById('photoDTR');
+const photoDTRPreview = document.getElementById('photoDTRPreview');
+const photoDTRStatus  = document.getElementById('photoDTRStatus');
+let processedDTRBase64 = null;
+
+photoDTRInput.addEventListener('change', async () => {
+  const f = photoDTRInput.files[0]; if (!f) return;
+  photoDTRStatus.textContent = '⏳ Processing DTR photo…';
+  photoDTRStatus.style.color = '#666';
+  try {
+    const { dataUrl, base64, sizeKb } = await processImage(f);
+    photoDTRPreview.src = dataUrl; photoDTRPreview.style.display = 'block';
+    processedDTRBase64 = base64;
+    photoDTRStatus.textContent = `✅ DTR photo ready (${sizeKb} KB).`;
+    photoDTRStatus.style.color = 'var(--ok)';
+  } catch (err) {
+    processedDTRBase64 = null;
+    photoDTRStatus.textContent = '❌ DTR photo failed: ' + err.message;
+    photoDTRStatus.style.color = 'var(--err)';
+  }
+});
+
 function copyAeslCode(c){
   if(navigator.clipboard) navigator.clipboard.writeText(c).then(()=>{
     const b=document.getElementById('copyAeslBtn');
@@ -561,7 +623,8 @@ form.addEventListener('submit', async e => {
     return;
   }
   if (!geo) { alert('Location not captured yet.'); getLoc(); return; }
-  if (!photoInput.files[0] || !processedPhotoBase64) { alert('Please take a photo.'); return; }
+  if (!processedMSNBase64) { alert('Please take the MSN Focused Meter Photo.'); photoMSNInput.scrollIntoView({behavior:'smooth', block:'center'}); return; }
+  if (!processedDTRBase64) { alert('Please take the DTR Full Structure View Photo.'); photoDTRInput.scrollIntoView({behavior:'smooth', block:'center'}); return; }
 
   if (!dtrCodeInp.value && dtrSelect.value && dtrSelect.value !== '__manual__') {
     const d = currentDtrList[Number(dtrSelect.value)];
@@ -574,8 +637,14 @@ form.addEventListener('submit', async e => {
 
   try {
     const fd = new FormData(form);
+    /* Disabled Project select is NOT included in FormData — inject manually */
     const payload = Object.fromEntries(fd.entries());
-    ['DTRRatingKVA','CableSizeSqmm','CableQuantityMeters'].forEach(k => { payload[k] = Number(payload[k]); });
+    payload.Project = 'APEPDCL';
+
+    ['DTRRatingKVA','NewDTRRatingKVA'].forEach(k => {
+      if (payload[k] !== undefined && payload[k] !== '') payload[k] = Number(payload[k]);
+    });
+    if (payload.NewDTRRatingKVA === '' || payload.NewDTRRatingKVA === undefined) delete payload.NewDTRRatingKVA;
 
     payload.Latitude  = geo.lat;
     payload.Longitude = geo.lng;
@@ -586,8 +655,8 @@ form.addEventListener('submit', async e => {
     delete payload.AccessCode;
     payload.DTRCode       = dtrCodeInp.value.trim();
     payload.DataEntryMode = dataEntryMode;
-    payload.PhotoBase64   = processedPhotoBase64;
-    payload.PhotoFileName = 'photo_' + payload.SubmissionRefId + '.jpg';
+    payload.MSNPhotoBase64 = processedMSNBase64;
+    payload.DTRPhotoBase64 = processedDTRBase64;
 
     const resp = await fetch(POWER_AUTOMATE_URL, {
       method:'POST', headers:{ 'Content-Type':'application/json' },
@@ -610,9 +679,13 @@ form.addEventListener('submit', async e => {
 
     form.reset();
     codeInput.value = localStorage.getItem('dtrAccessCode') || '';
-    preview.style.display = 'none';
-    processedPhotoBase64 = null;
+    /* Re-select APEPDCL after reset */
+    document.getElementById('project').value = 'APEPDCL';
+    photoMSNPreview.style.display = 'none'; photoDTRPreview.style.display = 'none';
+    photoMSNStatus.textContent = ''; photoDTRStatus.textContent = '';
+    processedMSNBase64 = null; processedDTRBase64 = null;
     wrap.classList.add('hidden');
+    newRatingWrap.classList.add('hidden');
     fillSelect(selDivision, [], '-- Select Division --');
     fillSelect(selSubDiv, [], '-- Select Sub-Division --');
     selDivision.disabled = true; selSubDiv.disabled = true;
@@ -639,4 +712,3 @@ form.addEventListener('submit', async e => {
 </script>
 </body>
 </html>
-`
